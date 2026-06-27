@@ -1,0 +1,55 @@
+/* Waypoint frontend component styles — loaded only on Waypoint pages */
+
+.wpnt-dashboard { max-width: 1100px; margin: 0 auto; padding: 1.5rem 1rem; }
+
+/* Stat bar */
+.wpnt-stat-bar { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 2rem; }
+.wpnt-stat-item { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem 1.5rem; flex: 1; min-width: 120px; text-align: center; }
+.wpnt-stat-item strong { display: block; font-size: 1.75rem; color: #1e3a5f; }
+.wpnt-stat-item span { font-size: .8rem; color: #6b7280; text-transform: uppercase; letter-spacing: .04em; }
+
+/* Session cards */
+.wpnt-session-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.25rem; }
+.wpnt-session-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1.25rem; transition: box-shadow .2s; }
+.wpnt-session-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,.1); }
+.wpnt-session-card h3 { font-size: 1rem; margin: 0 0 .5rem; }
+.wpnt-session-card .wpnt-meta { font-size: .85rem; color: #6b7280; margin-bottom: .75rem; }
+.wpnt-session-card .wpnt-status-pill { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: .75rem; font-weight: 600; }
+.wpnt-status-pill.scheduled { background: #dbeafe; color: #1d4ed8; }
+.wpnt-status-pill.delivered { background: #d1fae5; color: #065f46; }
+.wpnt-status-pill.cancelled { background: #fee2e2; color: #991b1b; }
+
+/* Progress bars */
+.wpnt-progress-bar { background: #e5e7eb; border-radius: 4px; height: 8px; overflow: hidden; margin-top: .25rem; }
+.wpnt-progress-bar-fill { background: #1e3a5f; height: 100%; border-radius: 4px; transition: width .4s ease; }
+
+/* Attendance checklist (front-end) */
+.wpnt-att-checklist { list-style: none; margin: 0; padding: 0; }
+.wpnt-att-checklist li { display: flex; align-items: center; gap: .75rem; padding: .5rem 0; border-bottom: 1px solid #f3f4f6; }
+.wpnt-att-checklist li:last-child { border-bottom: none; }
+.wpnt-att-checklist .sailor-name { flex: 1; }
+
+/* Training plan list */
+.wpnt-plan-list { list-style: none; margin: 0; padding: 0; }
+.wpnt-plan-item { padding: .75rem 0; border-bottom: 1px solid #f3f4f6; }
+.wpnt-plan-item h4 { margin: 0 0 .2rem; font-size: .95rem; }
+.wpnt-plan-item .wpnt-plan-meta { font-size: .8rem; color: #6b7280; }
+
+/* Observation feed */
+.wpnt-obs-feed { list-style: none; margin: 0; padding: 0; }
+.wpnt-obs-item { border-left: 3px solid #1e3a5f; padding: .6rem .75rem; margin-bottom: .75rem; background: #f8fafc; border-radius: 0 4px 4px 0; }
+.wpnt-obs-item p { margin: 0 0 .25rem; }
+.wpnt-obs-item .wpnt-obs-meta { font-size: .8rem; color: #9ca3af; }
+
+/* Curriculum tree */
+.wpnt-curr-tree { list-style: none; padding: 0; }
+.wpnt-curr-tree li { padding: .3rem 0; }
+.wpnt-curr-tree ul { list-style: none; padding-left: 1.5rem; border-left: 2px solid #e5e7eb; margin-left: .5rem; }
+.wpnt-curr-node-label { display: inline-flex; align-items: center; gap: .5rem; }
+.wpnt-curr-node-type { font-size: .7rem; background: #e5e7eb; padding: 1px 6px; border-radius: 3px; color: #6b7280; text-transform: uppercase; }
+
+/* Responsive */
+@media (max-width: 640px) {
+  .wpnt-stat-bar { flex-direction: column; }
+  .wpnt-session-cards { grid-template-columns: 1fr; }
+}
