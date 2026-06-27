@@ -65,8 +65,24 @@
 					</div>
 				<?php endif; ?>
 
-				<!-- Attendance summary -->
-				<?php if ( ! empty( $attendance ) ) : ?>
+				<!-- Attendance / Groups -->
+				<?php
+				$session_groups = class_exists( 'WPNT_Session_Group' ) ? WPNT_Session_Group::get_for_session( $session_id ) : array();
+				if ( ! empty( $session_groups ) ) :
+				?>
+					<?php foreach ( $session_groups as $sg ) : ?>
+						<div class="card mb-3">
+							<?php echo WPNT_Session_Group::render_group_block( $sg, $can_edit ); ?>
+						</div>
+					<?php endforeach; ?>
+					<?php if ( $can_edit ) : ?>
+						<div class="mb-3">
+							<button class="btn btn-outline btn-sm wpnt-add-group" data-session-id="<?php echo esc_attr( $session_id ); ?>">
+								<?php esc_html_e( '+ Add Cohort / Level Group', 'waypoint' ); ?>
+							</button>
+						</div>
+					<?php endif; ?>
+				<?php elseif ( ! empty( $attendance ) ) : ?>
 					<div class="card mb-3">
 						<h2 class="card-title"><?php esc_html_e( 'Attendance', 'waypoint' ); ?></h2>
 						<div class="att-summary-bar">
@@ -74,6 +90,13 @@
 								<span class="att-chip att-<?php echo esc_attr( $s ); ?>"><?php echo esc_html( ucfirst( str_replace( '_', ' ', $s ) ) ); ?>: <?php echo esc_html( $count ); ?></span>
 							<?php endforeach; ?>
 							<span><?php printf( esc_html__( '%d recorded', 'waypoint' ), $total ); ?></span>
+						</div>
+					</div>
+				<?php elseif ( $can_edit && $status !== 'cancelled' ) : ?>
+					<div class="card mb-3">
+						<h2 class="card-title"><?php esc_html_e( 'Mark Attendance', 'waypoint' ); ?></h2>
+						<div class="wpnt-att-widget" data-session-id="<?php echo esc_attr( $session_id ); ?>">
+							<?php echo WPNT_Attendance::render_checklist( $session_id ); ?>
 						</div>
 					</div>
 				<?php endif; ?>
@@ -95,16 +118,6 @@
 								</li>
 							<?php endforeach; ?>
 						</ul>
-					</div>
-				<?php endif; ?>
-
-				<!-- Attendance mark screen for coaches -->
-				<?php if ( $can_edit && $status !== 'cancelled' ) : ?>
-					<div class="card">
-						<h2 class="card-title"><?php esc_html_e( 'Mark Attendance', 'waypoint' ); ?></h2>
-						<div class="wpnt-att-widget" data-session-id="<?php echo esc_attr( $session_id ); ?>">
-							<?php echo WPNT_Attendance::render_checklist( $session_id ); ?>
-						</div>
 					</div>
 				<?php endif; ?>
 

@@ -56,7 +56,21 @@ $active_session    = $requested_session ?: ( ! empty( $today_sessions ) ? $today
 
 					<div class="wpnt-today-attendance">
 						<h3><?php esc_html_e( 'Attendance', 'wpnt' ); ?></h3>
-						<?php echo WPNT_Attendance::render_checklist( $active_session ); ?>
+						<?php
+						$session_groups = WPNT_Session_Group::get_for_session( $active_session );
+						if ( ! empty( $session_groups ) ) :
+							foreach ( $session_groups as $sg ) :
+								echo WPNT_Session_Group::render_group_block( $sg, true );
+							endforeach;
+						else :
+							echo WPNT_Attendance::render_checklist( $active_session );
+						endif;
+						?>
+						<div class="wpnt-add-group-row" style="margin-top:.75rem">
+							<button class="button wpnt-add-group" data-session-id="<?php echo esc_attr( $active_session ); ?>">
+								<?php esc_html_e( '+ Add Cohort / Level Group', 'wpnt' ); ?>
+							</button>
+						</div>
 					</div>
 
 					<div class="wpnt-today-notes">
