@@ -18,6 +18,7 @@ define( 'WPNT_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WPNT_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'WPNT_DB_VERSION', '2' );
 
+require_once WPNT_PLUGIN_DIR . 'includes/class-wpnt-pack.php';
 require_once WPNT_PLUGIN_DIR . 'includes/class-wpnt-activator.php';
 require_once WPNT_PLUGIN_DIR . 'includes/class-wpnt-db.php';
 require_once WPNT_PLUGIN_DIR . 'includes/class-wpnt-post-types.php';
@@ -34,6 +35,7 @@ require_once WPNT_PLUGIN_DIR . 'admin/class-wpnt-admin.php';
 
 register_activation_hook( __FILE__, array( 'WPNT_Activator', 'activate' ) );
 add_action( 'plugins_loaded', array( 'WPNT_DB', 'maybe_upgrade' ) );
+add_action( 'plugins_loaded', function() { do_action( 'wpnt_packs_init' ); }, 20 );
 register_deactivation_hook( __FILE__, array( 'WPNT_Activator', 'deactivate' ) );
 
 add_action( 'init', array( 'WPNT_Post_Types', 'register' ) );

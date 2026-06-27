@@ -1,0 +1,256 @@
+{
+  "curricula": [
+    {
+      "title": "Tackers — Foundation",
+      "slug": "tackers-foundation",
+      "version": "1.0",
+      "org": "Australian Sailing",
+      "nodes": [
+        {
+          "title": "Boat Preparation",
+          "slug": "tackers-boat-prep",
+          "type": "module",
+          "order": 1,
+          "skills": [
+            {
+              "title": "Rig dinghy independently",
+              "criteria": "Sailor rigs a Tackers dinghy without coach assistance within 10 minutes."
+            },
+            {
+              "title": "Pre-launch safety check",
+              "criteria": "Sailor verifies PFD fit, bailer, bungs, and tiller attachment before launching."
+            },
+            {
+              "title": "Launch and retrieve dinghy",
+              "criteria": "Sailor launches from the beach and retrieves the boat safely with minimal assistance."
+            }
+          ]
+        },
+        {
+          "title": "Basic Boat Handling",
+          "slug": "tackers-basic-handling",
+          "type": "module",
+          "order": 2,
+          "skills": [
+            {
+              "title": "Steer upwind",
+              "criteria": "Sailor steers a straight course to windward, responding to gusts and lulls with tiller movements."
+            },
+            {
+              "title": "Steer downwind",
+              "criteria": "Sailor steers downwind, controlling boom position and maintaining fore-aft balance."
+            },
+            {
+              "title": "Tack reliably",
+              "criteria": "Sailor completes a tack through the wind without stalling or losing significant ground on 3 consecutive attempts."
+            },
+            {
+              "title": "Gybe safely",
+              "criteria": "Sailor gybes with controlled boom movement, maintaining balance and course through the manoeuvre."
+            }
+          ]
+        },
+        {
+          "title": "Safety and Self-Rescue",
+          "slug": "tackers-safety",
+          "type": "module",
+          "order": 3,
+          "skills": [
+            {
+              "title": "Recover from capsize independently",
+              "criteria": "Sailor rights the boat and climbs back in without coach assistance in flat to small-chop conditions."
+            },
+            {
+              "title": "Self-rescue procedure",
+              "criteria": "Sailor demonstrates the club standard self-rescue sequence (swim to centreboard, right boat, bail, recommence)."
+            },
+            {
+              "title": "Assist another capsized sailor",
+              "criteria": "Sailor approaches a capsized boat safely from downwind and assists righting without endangering either boat."
+            }
+          ]
+        },
+        {
+          "title": "Wind Awareness",
+          "slug": "tackers-wind-awareness",
+          "type": "module",
+          "order": 4,
+          "skills": [
+            {
+              "title": "Identify wind direction",
+              "criteria": "Sailor identifies wind direction using telltales, ripples, or feel without coach prompting."
+            },
+            {
+              "title": "Sail upwind in 10+ knots",
+              "criteria": "Sailor maintains boat speed and correct course to windward in moderate breeze, hiking as needed."
+            },
+            {
+              "title": "Understand points of sail",
+              "criteria": "Sailor can name and demonstrate close-hauled, reaching, and running on request."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Tackers 2 — Development",
+      "slug": "tackers-2-development",
+      "version": "1.0",
+      "org": "Australian Sailing",
+      "nodes": [
+        {
+          "title": "Advanced Boat Handling",
+          "slug": "tackers2-advanced-handling",
+          "type": "module",
+          "order": 1,
+          "skills": [
+            {
+              "title": "Consistent tacking technique",
+              "criteria": "Sailor tacks efficiently across multiple headings in varying wind with no stalls."
+            },
+            {
+              "title": "Gybe in 12+ knots",
+              "criteria": "Sailor gybes confidently in moderate to fresh breeze, controlling the mainsheet throughout."
+            },
+            {
+              "title": "Sail fast upwind",
+              "criteria": "Sailor trims sails and hikes to maximise VMG upwind, maintaining course under coach observation."
+            },
+            {
+              "title": "Sail fast downwind",
+              "criteria": "Sailor controls downwind boat speed and avoids accidental gybes or broaches for 3+ minutes."
+            }
+          ]
+        },
+        {
+          "title": "Mark Rounding",
+          "slug": "tackers2-mark-rounding",
+          "type": "module",
+          "order": 2,
+          "skills": [
+            {
+              "title": "Windward mark rounding",
+              "criteria": "Sailor rounds the windward mark on the correct side with a clean tack or bear-away without stalling."
+            },
+            {
+              "title": "Leeward mark rounding",
+              "criteria": "Sailor rounds the leeward mark with an effective gybe or tack, maintaining speed into the upwind leg."
+            },
+            {
+              "title": "Mark rounding tactics",
+              "criteria": "Sailor plans the approach, gives room to other boats, and executes an efficient rounding consistently."
+            }
+          ]
+        },
+        {
+          "title": "Starting",
+          "slug": "tackers2-starting",
+          "type": "module",
+          "order": 3,
+          "skills": [
+            {
+              "title": "Understand the start sequence",
+              "criteria": "Sailor correctly identifies each flag signal and knows the timing of the start countdown."
+            },
+            {
+              "title": "Hit the start line at the gun",
+              "criteria": "Sailor crosses the start line within 10 seconds of the start signal near a chosen point with coach guidance."
+            },
+            {
+              "title": "Control boat speed in pre-start",
+              "criteria": "Sailor can slow down and accelerate on demand in the pre-start box without crossing early."
+            }
+          ]
+        },
+        {
+          "title": "Racing Rules — Basics",
+          "slug": "tackers2-racing-rules",
+          "type": "module",
+          "order": 4,
+          "skills": [
+            {
+              "title": "Port-starboard right of way",
+              "criteria": "Sailor understands and applies the port-starboard rule correctly in drill situations."
+            },
+            {
+              "title": "Windward-leeward overlap rights",
+              "criteria": "Sailor understands which boat must keep clear when boats are overlapped on the same tack."
+            },
+            {
+              "title": "Room at marks",
+              "criteria": "Sailor correctly claims or gives room at marks, understanding when the zone applies."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Keelboat — Introduction",
+      "slug": "keelboat-intro",
+      "version": "1.0",
+      "org": "Australian Sailing",
+      "nodes": [
+        {
+          "title": "Keelboat Familiarisation",
+          "slug": "keelboat-familiarisation",
+          "type": "module",
+          "order": 1,
+          "skills": [
+            {
+              "title": "Identify keelboat parts",
+              "criteria": "Crew names forestay, shrouds, boom, mainsheet, jib sheet, cleat, winch, and keel correctly."
+            },
+            {
+              "title": "Hoist and lower sails",
+              "criteria": "Crew hoists mainsail and jib using halyards and lowers them safely under instruction."
+            },
+            {
+              "title": "Understand crew roles",
+              "criteria": "Crew can describe and take on helm, crew, and foredeck roles and explains the difference."
+            }
+          ]
+        },
+        {
+          "title": "Keelboat Sailing",
+          "slug": "keelboat-sailing",
+          "type": "module",
+          "order": 2,
+          "skills": [
+            {
+              "title": "Helm upwind",
+              "criteria": "Helm steers upwind using telltales and feel to maintain optimal close-hauled angle for 5+ minutes."
+            },
+            {
+              "title": "Crew trim upwind",
+              "criteria": "Crew trims mainsheet and jib independently and communicates clearly with helm about sail shape."
+            },
+            {
+              "title": "Helm downwind",
+              "criteria": "Helm steers broad reaching and running without broaching in up to 15 knots."
+            }
+          ]
+        },
+        {
+          "title": "Keelboat Safety",
+          "slug": "keelboat-safety",
+          "type": "module",
+          "order": 3,
+          "skills": [
+            {
+              "title": "Man overboard recovery",
+              "criteria": "Crew executes a figure-eight MOB recovery and brings a fender alongside within 3 attempts."
+            },
+            {
+              "title": "Anchor and moorings",
+              "criteria": "Crew picks up a mooring and deploys anchor safely under instruction."
+            },
+            {
+              "title": "Engine safety and use",
+              "criteria": "Crew starts engine, uses it to manoeuvre in and out of a berth, and shuts down correctly."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
