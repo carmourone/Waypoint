@@ -152,8 +152,8 @@ class WPNT_REST_API {
 
 	public static function get_attendance( WP_REST_Request $request ): WP_REST_Response {
 		$session_id = (int) $request->get_param( 'session_id' );
-		$rows       = WPNT_DB::get_session_attendance( $session_id );
-		return new WP_REST_Response( $rows, 200 );
+		$rows       = WPNT_Attendance::get_session_attendance( $session_id );
+		return new WP_REST_Response( array_values( $rows ), 200 );
 	}
 
 	public static function save_observation( WP_REST_Request $request ): WP_REST_Response {
@@ -251,7 +251,17 @@ class WPNT_REST_API {
 			return new WP_REST_Response( array( 'error' => 'athlete_id and status are required' ), 400 );
 		}
 
-		$ok = WPNT_DB::upsert_progress( $athlete_id, $status, $skill_id, $node_id, $evidence );
+		$post_id = $skill_id ?: $node_id;
+		if ( ! $post_id ) {
+			return new WP_REST_Response( array( 'error' => 'skill_id or curriculum_node_id required' ), 400 );
+		}
+
+		$ok = WPNT_Graph::upsert_u2p( 'assessed', $athlete_id, $post_id, array(
+			'status'      => $status,
+			'evidence'    => $evidence,
+			'coach_id'    => get_current_user_id(),
+			'assessed_at' => current_time( 'mysql' ),
+		) );
 		return new WP_REST_Response( array( 'saved' => $ok ), $ok ? 200 : 500 );
 	}
 
@@ -260,7 +270,8 @@ class WPNT_REST_API {
 		if ( ! self::can_view_athlete_id( $athlete_id ) ) {
 			return new WP_REST_Response( array( 'error' => 'Forbidden' ), 403 );
 		}
-		return new WP_REST_Response( WPNT_DB::get_athlete_progress( $athlete_id ), 200 );
+		$rows = WPNT_Graph::get_u2p( 'assessed', array( 'user_id' => $athlete_id ) );
+		return new WP_REST_Response( $rows, 200 );
 	}
 
 	public static function get_todays_sessions( WP_REST_Request $request ): WP_REST_Response {
@@ -352,7 +363,11 @@ class WPNT_REST_API {
 			$skills     = array_filter( array_map( 'absint', (array) ( $record['skills'] ?? array() ) ) );
 			if ( $athlete_id && $skills ) {
 				foreach ( $skills as $skill_id ) {
-					WPNT_DB::upsert_progress( $athlete_id, 'practising', $skill_id );
+					WPNT_Graph::upsert_u2p( 'assessed', $athlete_id, $skill_id, array(
+						'status'      => 'practising',
+						'coach_id'    => get_current_user_id(),
+						'assessed_at' => current_time( 'mysql' ),
+					) );
 				}
 			}
 		}

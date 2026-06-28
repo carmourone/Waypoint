@@ -364,8 +364,9 @@ class WPNT_Session_Group {
 									<?php endif; ?>
 								</td>
 								<?php foreach ( $planned_skills as $skill ) :
-									$progress = WPNT_DB::get_progress_for_athlete_skill( $athlete->ID, $skill->ID );
-									$checked  = $progress && in_array( $progress->status, array( 'practising', 'competent_with_help', 'competent_independently' ), true );
+									$progress_row  = WPNT_Graph::get_u2p_row( 'assessed', $athlete->ID, $skill->ID );
+									$progress_data = $progress_row ? WPNT_Graph::decode_data( $progress_row->data ) : array();
+									$checked       = ! empty( $progress_data['status'] ) && in_array( $progress_data['status'], array( 'practising', 'competent_with_help', 'competent_independently' ), true );
 								?>
 									<td class="wpnt-skill-cell">
 										<?php if ( $editable && ( ! $att_status || $att_status === 'attended' || $att_status === 'partial' || $att_status === 'late' ) ) : ?>
