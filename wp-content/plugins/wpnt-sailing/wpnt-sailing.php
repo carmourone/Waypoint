@@ -5,7 +5,7 @@
  * Description: Sailing domain pack for Waypoint. Adds boat class and wind range taxonomies, sailing-specific session fields, and seeds the Tackers / Keelboat curriculum.
  * Version:     1.0.0
  * Author:      Waypoint
- * Requires Plugins: wpnt
+ * Requires Plugins: wpnt-core
  * License:     GPL-2.0-or-later
  * Text Domain: wpnt-sailing
  */
@@ -25,11 +25,14 @@ register_activation_hook( __FILE__, array( 'WPNT_Sailing_Importer', 'maybe_seed'
 
 add_action( 'wpnt_packs_init', function () {
 	WPNT_Pack::register( array(
-		'id'          => 'sailing',
-		'name'        => 'Sailing',
-		'version'     => WPNT_SAILING_VERSION,
-		'description' => 'Boat class and wind range taxonomies, sailing-specific session conditions fields, and a seeded Tackers / Keelboat / Race curriculum.',
-		'data_dir'    => WPNT_SAILING_DIR . 'data/',
+		'id'                      => 'sailing',
+		'name'                    => 'Sailing',
+		'version'                 => WPNT_SAILING_VERSION,
+		'description'             => 'Boat class and wind range taxonomies, sailing-specific session conditions fields, and a seeded Tackers / Keelboat / Race curriculum.',
+		'data_dir'                => WPNT_SAILING_DIR . 'data/',
+		'participant_label'       => __( 'Sailor', 'wpnt-sailing' ),
+		'participant_label_plural'=> __( 'Sailors', 'wpnt-sailing' ),
+		'org_label'               => __( 'Club', 'wpnt-sailing' ),
 	) );
 } );
 

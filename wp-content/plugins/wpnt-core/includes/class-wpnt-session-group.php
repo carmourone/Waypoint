@@ -93,40 +93,40 @@ class WPNT_Session_Group {
 	}
 
 	// -------------------------------------------------------------------------
-	// Sailors
+	// Participants
 	// -------------------------------------------------------------------------
 
 	/**
-	 * All sailors for a group — enrolled via the linked course + any ad-hoc additions.
+	 * All participants for a group — enrolled via the linked course + any ad-hoc additions.
 	 */
-	public static function get_sailors( object $group ): array {
-		$sailors = array();
+	public static function get_athletes( object $group ): array {
+		$athletes = array();
 
 		if ( $group->course_id ) {
-			$sailors = WPNT_Course::get_enrolled_sailors( (int) $group->course_id );
+			$athletes = WPNT_Course::get_enrolled_athletes( (int) $group->course_id );
 		}
 
 		if ( $group->adhoc_sailor_ids ) {
 			$adhoc_ids = array_filter( array_map( 'absint', json_decode( $group->adhoc_sailor_ids, true ) ?? array() ) );
 			if ( $adhoc_ids ) {
-				$existing_ids  = array_map( fn( $u ) => $u->ID, $sailors );
-				$adhoc_users   = get_users( array( 'include' => $adhoc_ids, 'orderby' => 'display_name' ) );
+				$existing_ids = array_map( fn( $u ) => $u->ID, $athletes );
+				$adhoc_users  = get_users( array( 'include' => $adhoc_ids, 'orderby' => 'display_name' ) );
 				foreach ( $adhoc_users as $u ) {
 					if ( ! in_array( $u->ID, $existing_ids, true ) ) {
-						$sailors[] = $u;
+						$athletes[] = $u;
 					}
 				}
 			}
 		}
 
-		return $sailors;
+		return $athletes;
 	}
 
 	/**
-	 * Add a sailor to a group outside normal course enrolment.
+	 * Add an athlete to a group outside normal course enrolment.
 	 * Also optionally enrols them in the linked course.
 	 */
-	public static function add_adhoc_sailor( int $group_id, int $sailor_id, bool $enroll_in_course = false ): bool {
+	public static function add_adhoc_athlete( int $group_id, int $athlete_id, bool $enroll_in_course = false ): bool {
 		global $wpdb;
 
 		$group = self::get( $group_id );
@@ -138,11 +138,11 @@ class WPNT_Session_Group {
 			? array_filter( array_map( 'absint', json_decode( $group->adhoc_sailor_ids, true ) ?? array() ) )
 			: array();
 
-		if ( in_array( $sailor_id, $current_ids, true ) ) {
+		if ( in_array( $athlete_id, $current_ids, true ) ) {
 			return true;
 		}
 
-		$current_ids[] = $sailor_id;
+		$current_ids[] = $athlete_id;
 
 		$ok = (bool) $wpdb->update(
 			$wpdb->prefix . 'wpnt_session_groups',
@@ -151,16 +151,16 @@ class WPNT_Session_Group {
 		);
 
 		if ( $ok && $enroll_in_course && $group->course_id ) {
-			WPNT_Course::enroll_sailor( (int) $group->course_id, $sailor_id );
+			WPNT_Course::enroll_athlete( (int) $group->course_id, $athlete_id );
 		}
 
 		return $ok;
 	}
 
 	/**
-	 * Remove an ad-hoc sailor from a group (does not unenrol from course).
+	 * Remove an ad-hoc athlete from a group (does not unenrol from course).
 	 */
-	public static function remove_adhoc_sailor( int $group_id, int $sailor_id ): bool {
+	public static function remove_adhoc_athlete( int $group_id, int $athlete_id ): bool {
 		global $wpdb;
 
 		$group = self::get( $group_id );
@@ -169,7 +169,7 @@ class WPNT_Session_Group {
 		}
 
 		$ids = array_filter( array_map( 'absint', json_decode( $group->adhoc_sailor_ids, true ) ?? array() ) );
-		$ids = array_values( array_diff( $ids, array( $sailor_id ) ) );
+		$ids = array_values( array_diff( $ids, array( $athlete_id ) ) );
 
 		return (bool) $wpdb->update(
 			$wpdb->prefix . 'wpnt_session_groups',
@@ -211,24 +211,25 @@ class WPNT_Session_Group {
 	public static function save_group_attendance( int $session_id, int $group_id, array $records ): array {
 		$results = array();
 		foreach ( $records as $record ) {
-			$sailor_id = absint( $record['sailor_id'] ?? 0 );
-			$status    = sanitize_text_field( $record['status'] ?? '' );
-			$notes     = sanitize_textarea_field( $record['notes'] ?? '' );
-			if ( ! $sailor_id || ! $status ) {
+			// Accept both legacy 'sailor_id' key (from old JS) and new 'athlete_id'.
+			$athlete_id = absint( $record['athlete_id'] ?? $record['sailor_id'] ?? 0 );
+			$status     = sanitize_text_field( $record['status'] ?? '' );
+			$notes      = sanitize_textarea_field( $record['notes'] ?? '' );
+			if ( ! $athlete_id || ! $status ) {
 				continue;
 			}
-			$results[ $sailor_id ] = self::upsert_group_attendance( $session_id, $group_id, $sailor_id, $status, $notes );
+			$results[ $athlete_id ] = self::upsert_group_attendance( $session_id, $group_id, $athlete_id, $status, $notes );
 		}
 		return $results;
 	}
 
-	private static function upsert_group_attendance( int $session_id, int $group_id, int $sailor_id, string $status, string $notes = '' ): bool {
+	private static function upsert_group_attendance( int $session_id, int $group_id, int $athlete_id, string $status, string $notes = '' ): bool {
 		global $wpdb;
 		$table = $wpdb->prefix . 'wpnt_attendance';
 
 		$existing = $wpdb->get_var( $wpdb->prepare(
 			"SELECT id FROM {$table} WHERE session_id = %d AND sailor_id = %d AND session_group_id = %d",
-			$session_id, $sailor_id, $group_id
+			$session_id, $athlete_id, $group_id
 		) );
 
 		$data = array(
@@ -243,7 +244,7 @@ class WPNT_Session_Group {
 		}
 
 		$data['session_id'] = $session_id;
-		$data['sailor_id']  = $sailor_id;
+		$data['sailor_id']  = $athlete_id;
 		return (bool) $wpdb->insert( $table, $data );
 	}
 
@@ -256,11 +257,13 @@ class WPNT_Session_Group {
 	 * Used on both the Today admin screen and the front-end session template.
 	 */
 	public static function render_group_block( object $group, bool $editable = true ): string {
-		$sailors         = self::get_sailors( $group );
+		$athletes        = self::get_athletes( $group );
 		$planned_skills  = self::get_planned_skills( $group );
 		$actual_skills   = self::get_actual_skills( $group );
 		$attendance      = self::get_attendance( $group->id );
 		$actual_ids      = array_map( fn( $s ) => $s->ID, $actual_skills );
+		$participant_lbl = WPNT_Pack::get_active_label( 'participant_label', __( 'Athlete', 'wpnt' ) );
+		$participants_lbl = WPNT_Pack::get_active_label( 'participant_label_plural', __( 'Athletes', 'wpnt' ) );
 
 		$course_label = $group->label;
 		if ( ! $course_label && $group->course_id ) {
@@ -345,7 +348,7 @@ class WPNT_Session_Group {
 			<table class="wpnt-group-att-table widefat" data-session-id="<?php echo esc_attr( $group->session_id ); ?>" data-group-id="<?php echo esc_attr( $group->id ); ?>">
 				<thead>
 					<tr>
-						<th><?php esc_html_e( 'Sailor', 'wpnt' ); ?></th>
+						<th><?php echo esc_html( $participant_lbl ); ?></th>
 						<th><?php esc_html_e( 'Status', 'wpnt' ); ?></th>
 						<?php foreach ( $planned_skills as $skill ) : ?>
 							<th title="<?php echo esc_attr( $skill->post_title ); ?>" class="wpnt-skill-col">
@@ -357,27 +360,27 @@ class WPNT_Session_Group {
 					</tr>
 				</thead>
 				<tbody>
-					<?php if ( empty( $sailors ) ) : ?>
+					<?php if ( empty( $athletes ) ) : ?>
 						<tr><td colspan="<?php echo 3 + count( $planned_skills ) + ( $editable ? 1 : 0 ); ?>">
-							<?php esc_html_e( 'No sailors in this group yet.', 'wpnt' ); ?>
+							<?php printf( esc_html__( 'No %s in this group yet.', 'wpnt' ), esc_html( strtolower( $participants_lbl ) ) ); ?>
 						</td></tr>
 					<?php else : ?>
-						<?php foreach ( $sailors as $sailor ) :
-							$att = $attendance[ $sailor->ID ] ?? null;
+						<?php foreach ( $athletes as $athlete ) :
+							$att = $attendance[ $athlete->ID ] ?? null;
 							$att_status = $att ? $att->status : '';
 							$att_notes  = $att ? $att->notes : '';
-							$is_adhoc   = ! $group->course_id || ! in_array( $sailor->ID, array_map( fn( $u ) => $u->ID, WPNT_Course::get_enrolled_sailors( (int) $group->course_id ) ), true );
+							$is_adhoc   = ! $group->course_id || ! in_array( $athlete->ID, array_map( fn( $u ) => $u->ID, WPNT_Course::get_enrolled_athletes( (int) $group->course_id ) ), true );
 						?>
-							<tr class="wpnt-group-att-row" data-sailor-id="<?php echo esc_attr( $sailor->ID ); ?>">
+							<tr class="wpnt-group-att-row" data-athlete-id="<?php echo esc_attr( $athlete->ID ); ?>">
 								<td>
-									<?php echo esc_html( $sailor->display_name ); ?>
+									<?php echo esc_html( $athlete->display_name ); ?>
 									<?php if ( $is_adhoc && $group->course_id ) : ?>
 										<span class="wpnt-adhoc-tag"><?php esc_html_e( 'ad-hoc', 'wpnt' ); ?></span>
 									<?php endif; ?>
 								</td>
 								<td>
 									<?php if ( $editable ) : ?>
-										<select class="wpnt-att-status-select" data-sailor-id="<?php echo esc_attr( $sailor->ID ); ?>">
+										<select class="wpnt-att-status-select" data-athlete-id="<?php echo esc_attr( $athlete->ID ); ?>">
 											<option value=""><?php esc_html_e( '—', 'wpnt' ); ?></option>
 											<?php foreach ( array( 'attended', 'absent', 'partial', 'excused', 'late', 'left_early' ) as $st ) : ?>
 												<option value="<?php echo esc_attr( $st ); ?>"<?php selected( $att_status, $st ); ?>>
@@ -392,14 +395,14 @@ class WPNT_Session_Group {
 									<?php endif; ?>
 								</td>
 								<?php foreach ( $planned_skills as $skill ) :
-									$progress = WPNT_DB::get_progress_for_sailor_skill( $sailor->ID, $skill->ID );
+									$progress = WPNT_DB::get_progress_for_athlete_skill( $athlete->ID, $skill->ID );
 									$checked  = $progress && in_array( $progress->status, array( 'practising', 'competent_with_help', 'competent_independently' ), true );
 								?>
 									<td class="wpnt-skill-cell">
 										<?php if ( $editable && ( ! $att_status || $att_status === 'attended' || $att_status === 'partial' || $att_status === 'late' ) ) : ?>
 											<input type="checkbox"
 												class="wpnt-skill-check-input"
-												data-sailor-id="<?php echo esc_attr( $sailor->ID ); ?>"
+												data-athlete-id="<?php echo esc_attr( $athlete->ID ); ?>"
 												data-skill-id="<?php echo esc_attr( $skill->ID ); ?>"
 												<?php checked( $checked ); ?>
 												title="<?php echo esc_attr( $skill->post_title ); ?>">
@@ -423,7 +426,7 @@ class WPNT_Session_Group {
 									<td>
 										<button class="button button-small wpnt-remove-adhoc"
 											data-group-id="<?php echo esc_attr( $group->id ); ?>"
-											data-sailor-id="<?php echo esc_attr( $sailor->ID ); ?>">✕</button>
+											data-athlete-id="<?php echo esc_attr( $athlete->ID ); ?>">✕</button>
 									</td>
 								<?php elseif ( $editable ) : ?>
 									<td></td>
@@ -436,21 +439,21 @@ class WPNT_Session_Group {
 
 			<?php if ( $editable ) : ?>
 				<div class="wpnt-group-footer">
-					<!-- Add sailor -->
-					<div class="wpnt-add-sailor-row">
-						<input type="text" class="wpnt-sailor-search" placeholder="<?php esc_attr_e( 'Search sailor to add…', 'wpnt' ); ?>">
-						<select class="wpnt-sailor-select" style="display:none">
+					<!-- Add athlete -->
+					<div class="wpnt-add-athlete-row">
+						<input type="text" class="wpnt-athlete-search" placeholder="<?php echo esc_attr( sprintf( __( 'Search %s to add…', 'wpnt' ), strtolower( $participant_lbl ) ) ); ?>">
+						<select class="wpnt-athlete-select" style="display:none">
 							<option value=""><?php esc_html_e( '— Select —', 'wpnt' ); ?></option>
 							<?php
-							$all_users = get_users( array( 'role' => 'wpnt_sailor', 'orderby' => 'display_name', 'number' => 200 ) );
+							$all_users = get_users( array( 'role' => 'wpnt_athlete', 'orderby' => 'display_name', 'number' => 200 ) );
 							foreach ( $all_users as $u ) :
 							?>
 								<option value="<?php echo esc_attr( $u->ID ); ?>"><?php echo esc_html( $u->display_name ); ?></option>
 							<?php endforeach; ?>
 						</select>
-						<button class="button wpnt-add-sailor-btn"
+						<button class="button wpnt-add-athlete-btn"
 							data-group-id="<?php echo esc_attr( $group->id ); ?>">
-							<?php esc_html_e( '+ Add Sailor', 'wpnt' ); ?>
+							<?php printf( esc_html__( '+ Add %s', 'wpnt' ), esc_html( $participant_lbl ) ); ?>
 						</button>
 						<label class="wpnt-enroll-check">
 							<input type="checkbox" class="wpnt-enroll-in-course" <?php echo $group->course_id ? '' : 'disabled'; ?>>

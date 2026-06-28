@@ -3,7 +3,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-$club_name = get_option( 'wpnt_club_name', 'Your Club' );
+$org_name         = get_option( 'wpnt_org_name', get_option( 'wpnt_club_name', 'Your Organisation' ) );
+$participants_lbl = WPNT_Pack::get_active_label( 'participant_label_plural', __( 'Athletes', 'wpnt' ) );
 
 $course_count = wp_count_posts( 'wpnt_course' );
 $active_courses = isset( $course_count->publish ) ? (int) $course_count->publish : 0;
@@ -14,13 +15,13 @@ $total_sessions = isset( $session_count->publish ) ? (int) $session_count->publi
 $tp_count = wp_count_posts( 'wpnt_training_plan' );
 $open_plans = isset( $tp_count->publish ) ? (int) $tp_count->publish : 0;
 
-$sailors = get_users( array( 'role' => 'wpnt_sailor', 'count_total' => true ) );
-$sailor_count = count( $sailors );
+$athletes      = get_users( array( 'role' => 'wpnt_athlete', 'count_total' => true ) );
+$athlete_count = count( $athletes );
 
 $today_sessions = WPNT_Session::get_todays_sessions();
 ?>
 <div class="wrap wpnt-admin-wrap">
-	<h1 class="wpnt-page-title"><?php printf( esc_html__( 'Waypoint — %s', 'wpnt' ), esc_html( $club_name ) ); ?></h1>
+	<h1 class="wpnt-page-title"><?php printf( esc_html__( 'Waypoint — %s', 'wpnt' ), esc_html( $org_name ) ); ?></h1>
 
 	<div class="wpnt-stat-cards">
 		<div class="wpnt-stat-card">
@@ -32,8 +33,8 @@ $today_sessions = WPNT_Session::get_todays_sessions();
 			<span class="wpnt-stat-label"><?php esc_html_e( 'Sessions Today', 'wpnt' ); ?></span>
 		</div>
 		<div class="wpnt-stat-card">
-			<span class="wpnt-stat-number"><?php echo esc_html( $sailor_count ); ?></span>
-			<span class="wpnt-stat-label"><?php esc_html_e( 'Sailors', 'wpnt' ); ?></span>
+			<span class="wpnt-stat-number"><?php echo esc_html( $athlete_count ); ?></span>
+			<span class="wpnt-stat-label"><?php echo esc_html( $participants_lbl ); ?></span>
 		</div>
 		<div class="wpnt-stat-card">
 			<span class="wpnt-stat-number"><?php echo esc_html( $open_plans ); ?></span>

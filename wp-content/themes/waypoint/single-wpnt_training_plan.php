@@ -2,22 +2,23 @@
 
 <?php while ( have_posts() ) : the_post();
 	$plan_id   = get_the_ID();
-	$sailor_id = (int) get_post_meta( $plan_id, '_wpnt_sailor_id', true );
-	$course_id = (int) get_post_meta( $plan_id, '_wpnt_course_id', true );
-	$origin    = get_post_meta( $plan_id, '_wpnt_origin', true );
-	$scope     = get_post_meta( $plan_id, '_wpnt_scope', true );
-	$goal      = get_post_meta( $plan_id, '_wpnt_goal', true );
-	$activities= get_post_meta( $plan_id, '_wpnt_planned_activities', true );
-	$status    = get_post_meta( $plan_id, '_wpnt_status', true );
-	$target    = get_post_meta( $plan_id, '_wpnt_target_date', true );
-	$coach_id  = (int) get_post_meta( $plan_id, '_wpnt_assigned_coach', true );
-	$sailor    = $sailor_id ? get_user_by( 'id', $sailor_id ) : null;
-	$coach     = $coach_id ? get_user_by( 'id', $coach_id ) : null;
+	$athlete_id      = (int) get_post_meta( $plan_id, '_wpnt_athlete_id', true );
+	$course_id       = (int) get_post_meta( $plan_id, '_wpnt_course_id', true );
+	$origin          = get_post_meta( $plan_id, '_wpnt_origin', true );
+	$scope           = get_post_meta( $plan_id, '_wpnt_scope', true );
+	$goal            = get_post_meta( $plan_id, '_wpnt_goal', true );
+	$activities      = get_post_meta( $plan_id, '_wpnt_planned_activities', true );
+	$status          = get_post_meta( $plan_id, '_wpnt_status', true );
+	$target          = get_post_meta( $plan_id, '_wpnt_target_date', true );
+	$coach_id        = (int) get_post_meta( $plan_id, '_wpnt_assigned_coach', true );
+	$athlete         = $athlete_id ? get_user_by( 'id', $athlete_id ) : null;
+	$coach           = $coach_id ? get_user_by( 'id', $coach_id ) : null;
+	$participant_lbl = class_exists( 'WPNT_Pack' ) ? WPNT_Pack::get_active_label( 'participant_label', __( 'Athlete', 'waypoint' ) ) : __( 'Athlete', 'waypoint' );
 
-	// Only the sailor, their parents, coaches, and admins can view.
-	$user_id = get_current_user_id();
+	// Only the athlete, their parents, coaches, and admins can view.
+	$user_id  = get_current_user_id();
 	$can_view = current_user_can( 'read_private_wpnt_sessions' )
-		|| $user_id === $sailor_id
+		|| $user_id === $athlete_id
 		|| $user_id === $coach_id;
 
 	if ( ! $can_view ) {
@@ -31,8 +32,8 @@
 	<div class="page-hero">
 		<div class="container">
 			<h1><?php the_title(); ?></h1>
-			<?php if ( $sailor ) : ?>
-				<p><?php printf( esc_html__( 'Sailor: %s', 'waypoint' ), esc_html( $sailor->display_name ) ); ?></p>
+			<?php if ( $athlete ) : ?>
+				<p><?php printf( esc_html__( '%s: %s', 'waypoint' ), esc_html( $participant_lbl ), esc_html( $athlete->display_name ) ); ?></p>
 			<?php endif; ?>
 			<span class="status-pill status-<?php echo esc_attr( $status ); ?>"><?php echo esc_html( ucfirst( $status ) ); ?></span>
 		</div>

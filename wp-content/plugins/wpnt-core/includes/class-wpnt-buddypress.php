@@ -28,11 +28,13 @@ class WPNT_BuddyPress {
 		}
 
 		$roles = $user->roles;
+		$org_lbl         = WPNT_Pack::get_active_label( 'org_label', __( 'Org', 'wpnt' ) );
+		$participant_lbl = WPNT_Pack::get_active_label( 'participant_label', __( 'Athlete', 'wpnt' ) );
 		$label_map = array(
-			'wpnt_club_admin' => __( 'Club Admin', 'wpnt' ),
+			'wpnt_org_admin'  => $org_lbl . ' ' . __( 'Admin', 'wpnt' ),
 			'wpnt_coach'      => __( 'Coach', 'wpnt' ),
 			'wpnt_asst_coach' => __( 'Assistant Coach', 'wpnt' ),
-			'wpnt_sailor'     => __( 'Sailor', 'wpnt' ),
+			'wpnt_athlete'    => $participant_lbl,
 			'wpnt_parent'     => __( 'Parent', 'wpnt' ),
 		);
 

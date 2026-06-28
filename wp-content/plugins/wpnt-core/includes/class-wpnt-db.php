@@ -63,24 +63,7 @@ class WPNT_DB {
 			KEY idx_node      (curriculum_node_id)
 		) $charset_collate;";
 
-		// Observations — coach notes about an individual sailor or a group.
-		$sql[] = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}wpnt_observations (
-			id               BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-			session_id       BIGINT(20) UNSIGNED          DEFAULT NULL,
-			sailor_id        BIGINT(20) UNSIGNED          DEFAULT NULL,
-			course_id        BIGINT(20) UNSIGNED          DEFAULT NULL,
-			coach_id         BIGINT(20) UNSIGNED NOT NULL,
-			note             TEXT                NOT NULL,
-			confidence_level VARCHAR(20)                  DEFAULT NULL,
-			evidence_type    VARCHAR(40)                  DEFAULT NULL,
-			linked_skills    LONGTEXT                     DEFAULT NULL COMMENT 'JSON array of skill post IDs',
-			created_at       DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			updated_at       DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-			PRIMARY KEY  (id),
-			KEY idx_session (session_id),
-			KEY idx_sailor  (sailor_id),
-			KEY idx_coach   (coach_id)
-		) $charset_collate;";
+		// Observations are stored as wpnt_observation CPT posts (v3+).
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		foreach ( $sql as $query ) {
@@ -97,6 +80,9 @@ class WPNT_DB {
 		$installed = get_option( 'wpnt_db_version', '0' );
 		if ( version_compare( $installed, '2', '<' ) ) {
 			self::upgrade_to_v2();
+		}
+		if ( version_compare( $installed, '3', '<' ) ) {
+			self::upgrade_to_v3();
 		}
 	}
 
@@ -124,18 +110,23 @@ class WPNT_DB {
 		self::create_tables();
 	}
 
+	private static function upgrade_to_v3(): void {
+		// Observations migrated to wpnt_observation CPT — no schema changes needed.
+		update_option( 'wpnt_db_version', '3' );
+	}
+
 	// -------------------------------------------------------------------------
 	// Attendance helpers
 	// -------------------------------------------------------------------------
 
-	public static function upsert_attendance( int $session_id, int $sailor_id, string $status, string $notes = '', int $recorded_by = 0 ): bool {
+	public static function upsert_attendance( int $session_id, int $athlete_id, string $status, string $notes = '', int $recorded_by = 0 ): bool {
 		global $wpdb;
 		$table = $wpdb->prefix . 'wpnt_attendance';
 
 		$existing = $wpdb->get_var( $wpdb->prepare(
 			"SELECT id FROM {$table} WHERE session_id = %d AND sailor_id = %d",
 			$session_id,
-			$sailor_id
+			$athlete_id
 		) );
 
 		$data = array(
@@ -149,7 +140,7 @@ class WPNT_DB {
 		}
 
 		$data['session_id'] = $session_id;
-		$data['sailor_id']  = $sailor_id;
+		$data['sailor_id']  = $athlete_id;
 		return (bool) $wpdb->insert( $table, $data );
 	}
 
@@ -161,7 +152,7 @@ class WPNT_DB {
 		) );
 	}
 
-	public static function get_sailor_attendance( int $sailor_id, int $course_id = 0 ): array {
+	public static function get_athlete_attendance( int $athlete_id, int $course_id = 0 ): array {
 		global $wpdb;
 		if ( $course_id ) {
 			$session_ids = get_posts( array(
@@ -177,12 +168,12 @@ class WPNT_DB {
 			$ids_placeholder = implode( ',', array_fill( 0, count( $session_ids ), '%d' ) );
 			return $wpdb->get_results( $wpdb->prepare(
 				"SELECT * FROM {$wpdb->prefix}wpnt_attendance WHERE sailor_id = %d AND session_id IN ($ids_placeholder)",
-				array_merge( array( $sailor_id ), $session_ids )
+				array_merge( array( $athlete_id ), $session_ids )
 			) );
 		}
 		return $wpdb->get_results( $wpdb->prepare(
 			"SELECT * FROM {$wpdb->prefix}wpnt_attendance WHERE sailor_id = %d ORDER BY created_at DESC",
-			$sailor_id
+			$athlete_id
 		) );
 	}
 
@@ -190,32 +181,21 @@ class WPNT_DB {
 	// Progress helpers
 	// -------------------------------------------------------------------------
 
-	public static function upsert_progress( int $sailor_id, string $status, int $skill_id = 0, int $node_id = 0, string $evidence = '' ): bool {
+	public static function upsert_progress( int $athlete_id, string $status, int $skill_id = 0, int $node_id = 0, string $evidence = '' ): bool {
 		global $wpdb;
 		$table = $wpdb->prefix . 'wpnt_progress';
 
-		$where = array( 'sailor_id' => $sailor_id );
-		$where_fmt = array( '%d' );
-		if ( $skill_id ) {
-			$where['skill_id'] = $skill_id;
-			$where_fmt[]       = '%d';
-		}
-		if ( $node_id ) {
-			$where['curriculum_node_id'] = $node_id;
-			$where_fmt[]                 = '%d';
-		}
-
 		$existing = $wpdb->get_var( $wpdb->prepare(
 			"SELECT id FROM {$table} WHERE sailor_id = %d AND skill_id = %d AND curriculum_node_id = %d",
-			$sailor_id,
+			$athlete_id,
 			$skill_id,
 			$node_id
 		) );
 
 		$data = array(
-			'status'    => sanitize_text_field( $status ),
-			'evidence'  => sanitize_textarea_field( $evidence ),
-			'coach_id'  => get_current_user_id(),
+			'status'      => sanitize_text_field( $status ),
+			'evidence'    => sanitize_textarea_field( $evidence ),
+			'coach_id'    => get_current_user_id(),
 			'assessed_at' => current_time( 'mysql' ),
 		);
 
@@ -224,63 +204,27 @@ class WPNT_DB {
 		}
 
 		$data = array_merge( $data, array(
-			'sailor_id'          => $sailor_id,
+			'sailor_id'          => $athlete_id,
 			'skill_id'           => $skill_id ?: null,
 			'curriculum_node_id' => $node_id ?: null,
 		) );
 		return (bool) $wpdb->insert( $table, $data );
 	}
 
-	public static function get_sailor_progress( int $sailor_id ): array {
+	public static function get_athlete_progress( int $athlete_id ): array {
 		global $wpdb;
 		return $wpdb->get_results( $wpdb->prepare(
 			"SELECT * FROM {$wpdb->prefix}wpnt_progress WHERE sailor_id = %d",
-			$sailor_id
+			$athlete_id
 		) );
 	}
 
-	public static function get_progress_for_sailor_skill( int $sailor_id, int $skill_id ): ?object {
+	public static function get_progress_for_athlete_skill( int $athlete_id, int $skill_id ): ?object {
 		global $wpdb;
 		return $wpdb->get_row( $wpdb->prepare(
 			"SELECT * FROM {$wpdb->prefix}wpnt_progress WHERE sailor_id = %d AND skill_id = %d ORDER BY assessed_at DESC LIMIT 1",
-			$sailor_id,
+			$athlete_id,
 			$skill_id
-		) );
-	}
-
-	// -------------------------------------------------------------------------
-	// Observation helpers
-	// -------------------------------------------------------------------------
-
-	public static function add_observation( array $args ): int|false {
-		global $wpdb;
-		$data = array(
-			'session_id'      => absint( $args['session_id'] ?? 0 ) ?: null,
-			'sailor_id'       => absint( $args['sailor_id'] ?? 0 ) ?: null,
-			'course_id'       => absint( $args['course_id'] ?? 0 ) ?: null,
-			'coach_id'        => absint( $args['coach_id'] ?? get_current_user_id() ),
-			'note'            => sanitize_textarea_field( $args['note'] ?? '' ),
-			'confidence_level'=> sanitize_text_field( $args['confidence_level'] ?? '' ),
-			'evidence_type'   => sanitize_text_field( $args['evidence_type'] ?? '' ),
-			'linked_skills'   => isset( $args['linked_skills'] ) ? wp_json_encode( array_map( 'absint', (array) $args['linked_skills'] ) ) : null,
-		);
-		$result = $wpdb->insert( $wpdb->prefix . 'wpnt_observations', $data );
-		return $result ? $wpdb->insert_id : false;
-	}
-
-	public static function get_session_observations( int $session_id ): array {
-		global $wpdb;
-		return $wpdb->get_results( $wpdb->prepare(
-			"SELECT * FROM {$wpdb->prefix}wpnt_observations WHERE session_id = %d ORDER BY created_at DESC",
-			$session_id
-		) );
-	}
-
-	public static function get_sailor_observations( int $sailor_id ): array {
-		global $wpdb;
-		return $wpdb->get_results( $wpdb->prepare(
-			"SELECT * FROM {$wpdb->prefix}wpnt_observations WHERE sailor_id = %d ORDER BY created_at DESC",
-			$sailor_id
 		) );
 	}
 }

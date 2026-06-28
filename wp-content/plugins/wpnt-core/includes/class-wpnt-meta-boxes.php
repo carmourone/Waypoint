@@ -20,6 +20,7 @@ class WPNT_Meta_Boxes {
 		add_meta_box( 'wpnt_course_meta', __( 'Course Details', 'wpnt' ), array( __CLASS__, 'course_fields' ), 'wpnt_course', 'normal', 'high' );
 		add_meta_box( 'wpnt_session_meta', __( 'Session Details', 'wpnt' ), array( __CLASS__, 'session_fields' ), 'wpnt_session', 'normal', 'high' );
 		add_meta_box( 'wpnt_training_plan_meta', __( 'Training Plan Details', 'wpnt' ), array( __CLASS__, 'training_plan_fields' ), 'wpnt_training_plan', 'normal', 'high' );
+		add_meta_box( 'wpnt_observation_meta', __( 'Observation Details', 'wpnt' ), array( __CLASS__, 'observation_fields' ), 'wpnt_observation', 'side', 'default' );
 	}
 
 	// -------------------------------------------------------------------------
@@ -159,9 +160,58 @@ class WPNT_Meta_Boxes {
 		echo '</tbody></table>';
 	}
 
+	public static function observation_fields( WP_Post $post ): void {
+		wp_nonce_field( 'wpnt_save_meta', 'wpnt_meta_nonce' );
+		$session_id      = get_post_meta( $post->ID, '_wpnt_session_id', true );
+		$athlete_id      = get_post_meta( $post->ID, '_wpnt_athlete_id', true );
+		$course_id       = get_post_meta( $post->ID, '_wpnt_course_id', true );
+		$confidence      = get_post_meta( $post->ID, '_wpnt_confidence_level', true );
+		$evidence_type   = get_post_meta( $post->ID, '_wpnt_evidence_type', true );
+		$participant_lbl = WPNT_Pack::get_active_label( 'participant_label', __( 'Athlete', 'wpnt' ) );
+		?>
+		<p>
+			<label><?php esc_html_e( 'Session', 'wpnt' ); ?><br>
+			<select name="wpnt_obs_session_id" style="width:100%">
+				<option value=""><?php esc_html_e( '— None —', 'wpnt' ); ?></option>
+				<?php foreach ( get_posts( array( 'post_type' => 'wpnt_session', 'posts_per_page' => 50, 'orderby' => 'date', 'order' => 'DESC' ) ) as $s ) : ?>
+					<option value="<?php echo esc_attr( $s->ID ); ?>"<?php selected( $session_id, $s->ID ); ?>><?php echo esc_html( $s->post_title ); ?></option>
+				<?php endforeach; ?>
+			</select></label>
+		</p>
+		<p>
+			<label><?php echo esc_html( $participant_lbl ); ?> (<?php esc_html_e( 'leave blank for group', 'wpnt' ); ?>)<br>
+			<select name="wpnt_obs_athlete_id" style="width:100%">
+				<option value=""><?php esc_html_e( '— Group —', 'wpnt' ); ?></option>
+				<?php foreach ( get_users( array( 'role' => 'wpnt_athlete', 'orderby' => 'display_name', 'number' => 200 ) ) as $u ) : ?>
+					<option value="<?php echo esc_attr( $u->ID ); ?>"<?php selected( $athlete_id, $u->ID ); ?>><?php echo esc_html( $u->display_name ); ?></option>
+				<?php endforeach; ?>
+			</select></label>
+		</p>
+		<p>
+			<label><?php esc_html_e( 'Confidence Level', 'wpnt' ); ?><br>
+			<select name="wpnt_obs_confidence_level" style="width:100%">
+				<option value=""><?php esc_html_e( '— Select —', 'wpnt' ); ?></option>
+				<?php foreach ( array( 'high' => 'High', 'medium' => 'Medium', 'low' => 'Low' ) as $val => $lbl ) : ?>
+					<option value="<?php echo esc_attr( $val ); ?>"<?php selected( $confidence, $val ); ?>><?php echo esc_html( $lbl ); ?></option>
+				<?php endforeach; ?>
+			</select></label>
+		</p>
+		<p>
+			<label><?php esc_html_e( 'Evidence Type', 'wpnt' ); ?><br>
+			<select name="wpnt_obs_evidence_type" style="width:100%">
+				<option value=""><?php esc_html_e( '— Select —', 'wpnt' ); ?></option>
+				<?php foreach ( array( 'verbal' => 'Verbal', 'demonstrated' => 'Demonstrated', 'recorded' => 'Recorded', 'written' => 'Written' ) as $val => $lbl ) : ?>
+					<option value="<?php echo esc_attr( $val ); ?>"<?php selected( $evidence_type, $val ); ?>><?php echo esc_html( $lbl ); ?></option>
+				<?php endforeach; ?>
+			</select></label>
+		</p>
+		<p class="description"><?php esc_html_e( 'Draft = coach-only. Publish = visible to participant and parent.', 'wpnt' ); ?></p>
+		<?php
+	}
+
 	public static function training_plan_fields( WP_Post $post ): void {
 		wp_nonce_field( 'wpnt_save_meta', 'wpnt_meta_nonce' );
-		$sailor_id  = get_post_meta( $post->ID, '_wpnt_sailor_id', true );
+		$athlete_id = get_post_meta( $post->ID, '_wpnt_athlete_id', true );
 		$course_id  = get_post_meta( $post->ID, '_wpnt_course_id', true );
 		$origin     = get_post_meta( $post->ID, '_wpnt_origin', true );
 		$scope      = get_post_meta( $post->ID, '_wpnt_scope', true );
@@ -171,8 +221,9 @@ class WPNT_Meta_Boxes {
 		$target     = get_post_meta( $post->ID, '_wpnt_target_date', true );
 		$coach_id   = get_post_meta( $post->ID, '_wpnt_assigned_coach', true );
 
+		$participant_lbl = WPNT_Pack::get_active_label( 'participant_label', __( 'Athlete', 'wpnt' ) );
 		echo '<table class="form-table"><tbody>';
-		self::user_select_row( __( 'Sailor', 'wpnt' ), 'wpnt_sailor_id', $sailor_id, 'wpnt_sailor' );
+		self::user_select_row( $participant_lbl, 'wpnt_athlete_id', $athlete_id, 'wpnt_athlete' );
 		self::post_select_row( __( 'Course (optional)', 'wpnt' ), 'wpnt_course_id', $course_id, 'wpnt_course' );
 		self::select_row( __( 'Origin', 'wpnt' ), 'wpnt_origin', $origin, array(
 			''                   => '— Select —',
@@ -263,13 +314,19 @@ class WPNT_Meta_Boxes {
 			'wpnt_template_id'          => '_wpnt_template_id',
 			'wpnt_actual_notes'         => '_wpnt_actual_notes',
 			// training plan
-			'wpnt_sailor_id'            => '_wpnt_sailor_id',
+			'wpnt_athlete_id'           => '_wpnt_athlete_id',
 			'wpnt_origin'               => '_wpnt_origin',
 			'wpnt_scope'                => '_wpnt_scope',
 			'wpnt_goal'                 => '_wpnt_goal',
 			'wpnt_planned_activities'   => '_wpnt_planned_activities',
 			'wpnt_target_date'          => '_wpnt_target_date',
 			'wpnt_assigned_coach'       => '_wpnt_assigned_coach',
+			// observation
+			'wpnt_obs_session_id'       => '_wpnt_session_id',
+			'wpnt_obs_athlete_id'       => '_wpnt_athlete_id',
+			'wpnt_obs_course_id'        => '_wpnt_course_id',
+			'wpnt_obs_confidence_level' => '_wpnt_confidence_level',
+			'wpnt_obs_evidence_type'    => '_wpnt_evidence_type',
 		);
 
 		foreach ( $fields as $field => $meta_key ) {

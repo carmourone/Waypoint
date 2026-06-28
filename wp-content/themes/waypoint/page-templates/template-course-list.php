@@ -46,7 +46,8 @@ $query = new WP_Query( array(
 					$node_id   = (int) get_post_meta( $course_id, '_wpnt_node_id', true );
 					$node      = $node_id ? get_post( $node_id ) : null;
 
-					$sailors   = waypoint_plugin_active() ? WPNT_Course::get_enrolled_sailors( $course_id ) : array();
+					$athletes         = waypoint_plugin_active() ? WPNT_Course::get_enrolled_athletes( $course_id ) : array();
+					$participants_lbl = class_exists( 'WPNT_Pack' ) ? WPNT_Pack::get_active_label( 'participant_label_plural', __( 'Athletes', 'waypoint' ) ) : __( 'Athletes', 'waypoint' );
 				?>
 					<div class="card">
 						<h2 class="card-title" style="font-size:1rem"><a href="<?php the_permalink(); ?>"><?php the_title(); ?></a></h2>
@@ -58,7 +59,7 @@ $query = new WP_Query( array(
 							</p>
 						<?php endif; ?>
 						<?php if ( $day_time ) : ?><p style="font-size:.85rem"><?php echo esc_html( $day_time ); ?></p><?php endif; ?>
-						<p style="font-size:.8rem;color:#6b7280"><?php printf( esc_html__( '%d sailors enrolled', 'waypoint' ), count( $sailors ) ); ?></p>
+						<p style="font-size:.8rem;color:#6b7280"><?php printf( esc_html__( '%d %s enrolled', 'waypoint' ), count( $athletes ), esc_html( strtolower( $participants_lbl ) ) ); ?></p>
 						<span class="status-pill status-<?php echo esc_attr( $status ); ?>"><?php echo esc_html( ucfirst( $status ) ); ?></span>
 						<br>
 						<a href="<?php the_permalink(); ?>" class="btn btn-outline btn-sm mt-1"><?php esc_html_e( 'View Course', 'waypoint' ); ?></a>

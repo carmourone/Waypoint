@@ -1,6 +1,6 @@
 <?php
 /**
- * Template Name: Sailor Dashboard
+ * Template Name: Athlete Dashboard
  * Template Post Type: page
  */
 
@@ -11,16 +11,16 @@ if ( ! is_user_logged_in() ) {
 
 get_header();
 
-$sailor_id = get_current_user_id();
-$user      = wp_get_current_user();
+$athlete_id = get_current_user_id();
+$user       = wp_get_current_user();
 
-// Courses this sailor is enrolled in.
+// Courses this athlete is enrolled in.
 $enrolled_courses = array();
 if ( waypoint_plugin_active() ) {
 	global $wpdb;
 	$course_ids = $wpdb->get_col( $wpdb->prepare(
 		"SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = '_wpnt_enrolled_sailors' AND meta_value LIKE %s",
-		'%' . $wpdb->esc_like( (string) $sailor_id ) . '%'
+		'%' . $wpdb->esc_like( (string) $athlete_id ) . '%'
 	) );
 	if ( $course_ids ) {
 		$enrolled_courses = get_posts( array(
@@ -33,7 +33,7 @@ if ( waypoint_plugin_active() ) {
 
 // Upcoming sessions.
 $upcoming_sessions = array();
-if ( waypoint_plugin_active() && $course_ids ) {
+if ( waypoint_plugin_active() && ! empty( $course_ids ) ) {
 	$today = current_time( 'Y-m-d' );
 	$upcoming_sessions = get_posts( array(
 		'post_type'      => 'wpnt_session',
@@ -49,7 +49,7 @@ if ( waypoint_plugin_active() && $course_ids ) {
 }
 
 // Attendance history.
-$attendance_history = waypoint_plugin_active() ? WPNT_DB::get_sailor_attendance( $sailor_id ) : array();
+$attendance_history = waypoint_plugin_active() ? WPNT_DB::get_athlete_attendance( $athlete_id ) : array();
 
 // Training plans.
 $training_plans = array();
@@ -58,7 +58,7 @@ if ( waypoint_plugin_active() ) {
 		'post_type'      => 'wpnt_training_plan',
 		'posts_per_page' => 5,
 		'meta_query'     => array(
-			array( 'key' => '_wpnt_sailor_id', 'value' => $sailor_id ),
+			array( 'key' => '_wpnt_athlete_id', 'value' => $athlete_id ),
 			array( 'key' => '_wpnt_status', 'value' => array( 'approved', 'active' ), 'compare' => 'IN' ),
 		),
 	) );

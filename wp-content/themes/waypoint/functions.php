@@ -24,7 +24,7 @@ function waypoint_setup(): void {
 	register_nav_menus( array(
 		'primary'    => __( 'Primary Menu', 'waypoint' ),
 		'coach'      => __( 'Coach Menu', 'waypoint' ),
-		'sailor'     => __( 'Sailor Menu', 'waypoint' ),
+		'athlete'    => __( 'Athlete Menu', 'waypoint' ),
 		'parent'     => __( 'Parent Menu', 'waypoint' ),
 		'footer'     => __( 'Footer Menu', 'waypoint' ),
 	) );
@@ -113,7 +113,7 @@ function waypoint_current_role(): string {
 	$user  = wp_get_current_user();
 	$roles = $user->roles;
 
-	$priority = array( 'administrator', 'wpnt_club_admin', 'wpnt_coach', 'wpnt_asst_coach', 'wpnt_parent', 'wpnt_sailor' );
+	$priority = array( 'administrator', 'wpnt_org_admin', 'wpnt_coach', 'wpnt_asst_coach', 'wpnt_parent', 'wpnt_athlete' );
 	foreach ( $priority as $role ) {
 		if ( in_array( $role, $roles, true ) ) {
 			return $role;
@@ -127,13 +127,15 @@ function waypoint_current_role(): string {
  */
 function waypoint_role_label( string $role = '' ): string {
 	$role = $role ?: waypoint_current_role();
+	$participant_lbl = class_exists( 'WPNT_Pack' ) ? WPNT_Pack::get_active_label( 'participant_label', __( 'Athlete', 'waypoint' ) ) : __( 'Athlete', 'waypoint' );
+	$org_lbl         = class_exists( 'WPNT_Pack' ) ? WPNT_Pack::get_active_label( 'org_label', __( 'Org', 'waypoint' ) ) : __( 'Org', 'waypoint' );
 	$labels = array(
-		'administrator'   => __( 'Administrator', 'waypoint' ),
-		'wpnt_club_admin' => __( 'Club Admin', 'waypoint' ),
-		'wpnt_coach'      => __( 'Coach', 'waypoint' ),
-		'wpnt_asst_coach' => __( 'Assistant Coach', 'waypoint' ),
-		'wpnt_parent'     => __( 'Parent', 'waypoint' ),
-		'wpnt_sailor'     => __( 'Sailor', 'waypoint' ),
+		'administrator'  => __( 'Administrator', 'waypoint' ),
+		'wpnt_org_admin' => $org_lbl . ' ' . __( 'Admin', 'waypoint' ),
+		'wpnt_coach'     => __( 'Coach', 'waypoint' ),
+		'wpnt_asst_coach'=> __( 'Assistant Coach', 'waypoint' ),
+		'wpnt_parent'    => __( 'Parent', 'waypoint' ),
+		'wpnt_athlete'   => $participant_lbl,
 	);
 	return $labels[ $role ] ?? ucfirst( $role );
 }

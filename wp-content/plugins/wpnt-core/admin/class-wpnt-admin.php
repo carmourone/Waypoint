@@ -20,7 +20,8 @@ class WPNT_Admin {
 		add_submenu_page( 'wpnt', __( 'Dashboard', 'wpnt' ), __( 'Dashboard', 'wpnt' ), 'read', 'wpnt', array( __CLASS__, 'page_dashboard' ) );
 		add_submenu_page( 'wpnt', __( 'Today', 'wpnt' ), __( 'Today', 'wpnt' ), 'read', 'wpnt-today', array( __CLASS__, 'page_today' ) );
 		add_submenu_page( 'wpnt', __( 'Attendance', 'wpnt' ), __( 'Attendance', 'wpnt' ), 'edit_wpnt_sessions', 'wpnt-attendance', array( __CLASS__, 'page_attendance' ) );
-		add_submenu_page( 'wpnt', __( 'Sailors', 'wpnt' ), __( 'Sailors', 'wpnt' ), 'read_private_wpnt_sessions', 'wpnt-sailors', array( __CLASS__, 'page_sailors' ) );
+		$athletes_lbl = WPNT_Pack::get_active_label( 'participant_label_plural', __( 'Athletes', 'wpnt' ) );
+		add_submenu_page( 'wpnt', $athletes_lbl, $athletes_lbl, 'read_private_wpnt_sessions', 'wpnt-sailors', array( __CLASS__, 'page_sailors' ) );
 		add_submenu_page( 'wpnt', __( 'Training Plans', 'wpnt' ), __( 'Training Plans', 'wpnt' ), 'edit_wpnt_training_plans', 'wpnt-training-plans', array( __CLASS__, 'page_training_plans' ) );
 		add_submenu_page( 'wpnt', __( 'Settings', 'wpnt' ), __( 'Settings', 'wpnt' ), 'manage_options', 'wpnt-settings', array( __CLASS__, 'page_settings' ) );
 	}
@@ -61,7 +62,7 @@ class WPNT_Admin {
 	}
 
 	public static function page_sailors(): void {
-		include WPNT_PLUGIN_DIR . 'admin/views/sailors.php';
+		include WPNT_PLUGIN_DIR . 'admin/views/athletes.php';
 	}
 
 	public static function page_training_plans(): void {
@@ -74,13 +75,14 @@ class WPNT_Admin {
 		}
 
 		if ( isset( $_POST['wpnt_settings_nonce'] ) && wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['wpnt_settings_nonce'] ) ), 'wpnt_save_settings' ) ) {
-			update_option( 'wpnt_club_name', sanitize_text_field( $_POST['wpnt_club_name'] ?? '' ) );
-			update_option( 'wpnt_club_location', sanitize_text_field( $_POST['wpnt_club_location'] ?? '' ) );
+			update_option( 'wpnt_org_name', sanitize_text_field( $_POST['wpnt_org_name'] ?? '' ) );
+			update_option( 'wpnt_org_location', sanitize_text_field( $_POST['wpnt_org_location'] ?? '' ) );
 			echo '<div class="notice notice-success"><p>' . esc_html__( 'Settings saved.', 'wpnt' ) . '</p></div>';
 		}
 
-		$club_name     = get_option( 'wpnt_club_name', '' );
-		$club_location = get_option( 'wpnt_club_location', '' );
+		$org_name     = get_option( 'wpnt_org_name', get_option( 'wpnt_club_name', '' ) );
+		$org_location = get_option( 'wpnt_org_location', get_option( 'wpnt_club_location', '' ) );
+		$org_lbl      = WPNT_Pack::get_active_label( 'org_label', __( 'Organisation', 'wpnt' ) );
 		?>
 		<div class="wrap">
 			<h1><?php esc_html_e( 'Waypoint Settings', 'wpnt' ); ?></h1>
@@ -88,12 +90,12 @@ class WPNT_Admin {
 				<?php wp_nonce_field( 'wpnt_save_settings', 'wpnt_settings_nonce' ); ?>
 				<table class="form-table">
 					<tr>
-						<th><label for="wpnt_club_name"><?php esc_html_e( 'Club Name', 'wpnt' ); ?></label></th>
-						<td><input type="text" id="wpnt_club_name" name="wpnt_club_name" value="<?php echo esc_attr( $club_name ); ?>" class="regular-text"></td>
+						<th><label for="wpnt_org_name"><?php echo esc_html( $org_lbl . ' ' . __( 'Name', 'wpnt' ) ); ?></label></th>
+						<td><input type="text" id="wpnt_org_name" name="wpnt_org_name" value="<?php echo esc_attr( $org_name ); ?>" class="regular-text"></td>
 					</tr>
 					<tr>
-						<th><label for="wpnt_club_location"><?php esc_html_e( 'Club Location', 'wpnt' ); ?></label></th>
-						<td><input type="text" id="wpnt_club_location" name="wpnt_club_location" value="<?php echo esc_attr( $club_location ); ?>" class="regular-text"></td>
+						<th><label for="wpnt_org_location"><?php echo esc_html( $org_lbl . ' ' . __( 'Location', 'wpnt' ) ); ?></label></th>
+						<td><input type="text" id="wpnt_org_location" name="wpnt_org_location" value="<?php echo esc_attr( $org_location ); ?>" class="regular-text"></td>
 					</tr>
 				</table>
 				<?php submit_button( __( 'Save Settings', 'wpnt' ) ); ?>
