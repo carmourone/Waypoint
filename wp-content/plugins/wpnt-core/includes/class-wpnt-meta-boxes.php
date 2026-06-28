@@ -21,6 +21,8 @@ class WPNT_Meta_Boxes {
 		add_meta_box( 'wpnt_session_meta', __( 'Session Details', 'wpnt' ), array( __CLASS__, 'session_fields' ), 'wpnt_session', 'normal', 'high' );
 		add_meta_box( 'wpnt_training_plan_meta', __( 'Training Plan Details', 'wpnt' ), array( __CLASS__, 'training_plan_fields' ), 'wpnt_training_plan', 'normal', 'high' );
 		add_meta_box( 'wpnt_observation_meta', __( 'Observation Details', 'wpnt' ), array( __CLASS__, 'observation_fields' ), 'wpnt_observation', 'side', 'default' );
+		add_meta_box( 'wpnt_diary_template_meta', __( 'Template Details', 'wpnt' ), array( __CLASS__, 'diary_template_fields' ), 'wpnt_diary_template', 'normal', 'high' );
+		add_meta_box( 'wpnt_diary_entry_meta', __( 'Entry Details', 'wpnt' ), array( __CLASS__, 'diary_entry_fields' ), 'wpnt_diary_entry', 'side', 'default' );
 	}
 
 	// -------------------------------------------------------------------------
@@ -211,19 +213,41 @@ class WPNT_Meta_Boxes {
 
 	public static function training_plan_fields( WP_Post $post ): void {
 		wp_nonce_field( 'wpnt_save_meta', 'wpnt_meta_nonce' );
-		$athlete_id = get_post_meta( $post->ID, '_wpnt_athlete_id', true );
-		$course_id  = get_post_meta( $post->ID, '_wpnt_course_id', true );
-		$origin     = get_post_meta( $post->ID, '_wpnt_origin', true );
-		$scope      = get_post_meta( $post->ID, '_wpnt_scope', true );
-		$goal       = get_post_meta( $post->ID, '_wpnt_goal', true );
-		$activities = get_post_meta( $post->ID, '_wpnt_planned_activities', true );
-		$status     = get_post_meta( $post->ID, '_wpnt_status', true );
-		$target     = get_post_meta( $post->ID, '_wpnt_target_date', true );
-		$coach_id   = get_post_meta( $post->ID, '_wpnt_assigned_coach', true );
+		$plan_type    = get_post_meta( $post->ID, '_wpnt_plan_type', true );
+		$subject_type = get_post_meta( $post->ID, '_wpnt_subject_type', true ) ?: 'individual';
+		$subject_id   = get_post_meta( $post->ID, '_wpnt_subject_id', true );
+		$athlete_id   = get_post_meta( $post->ID, '_wpnt_athlete_id', true );
+		$course_id    = get_post_meta( $post->ID, '_wpnt_course_id', true );
+		$origin       = get_post_meta( $post->ID, '_wpnt_origin', true );
+		$scope        = get_post_meta( $post->ID, '_wpnt_scope', true );
+		$goal         = get_post_meta( $post->ID, '_wpnt_goal', true );
+		$activities   = get_post_meta( $post->ID, '_wpnt_planned_activities', true );
+		$status       = get_post_meta( $post->ID, '_wpnt_status', true );
+		$target       = get_post_meta( $post->ID, '_wpnt_target_date', true );
+		$coach_id     = get_post_meta( $post->ID, '_wpnt_assigned_coach', true );
+		$visibility   = get_post_meta( $post->ID, '_wpnt_visibility', true ) ?: 'shared';
 
 		$participant_lbl = WPNT_Pack::get_active_label( 'participant_label', __( 'Athlete', 'wpnt' ) );
 		echo '<table class="form-table"><tbody>';
-		self::user_select_row( $participant_lbl, 'wpnt_athlete_id', $athlete_id, 'wpnt_athlete' );
+		self::select_row( __( 'Plan Type', 'wpnt' ), 'wpnt_plan_type', $plan_type, array(
+			''              => '— Select —',
+			'pathway'       => 'Pathway',
+			'level'         => 'Level',
+			'module'        => 'Module',
+			'session_block' => 'Session Block',
+			'individual'    => 'Individual Plan',
+			'group'         => 'Group Plan',
+		) );
+		self::select_row( __( 'Subject Type', 'wpnt' ), 'wpnt_subject_type', $subject_type, array(
+			'individual'    => 'Individual Athlete',
+			'group'         => 'Group',
+			'course_cohort' => 'Course Cohort',
+			'squad'         => 'Squad',
+			'club'          => 'Club',
+			'program'       => 'Program',
+		) );
+		self::text_row( __( 'Subject ID', 'wpnt' ), 'wpnt_subject_id', $subject_id, 'User or post ID' );
+		self::user_select_row( $participant_lbl . ' ' . __( '(legacy)', 'wpnt' ), 'wpnt_athlete_id', $athlete_id, 'wpnt_athlete' );
 		self::post_select_row( __( 'Course (optional)', 'wpnt' ), 'wpnt_course_id', $course_id, 'wpnt_course' );
 		self::select_row( __( 'Origin', 'wpnt' ), 'wpnt_origin', $origin, array(
 			''                   => '— Select —',
@@ -249,15 +273,52 @@ class WPNT_Meta_Boxes {
 		self::textarea_row( __( 'Goal', 'wpnt' ), 'wpnt_goal', $goal );
 		self::textarea_row( __( 'Planned Activities', 'wpnt' ), 'wpnt_planned_activities', $activities );
 		self::select_row( __( 'Status', 'wpnt' ), 'wpnt_status', $status, array(
-			'draft'     => 'Draft',
-			'approved'  => 'Approved',
-			'active'    => 'Active',
-			'completed' => 'Completed',
-			'cancelled' => 'Cancelled',
+			'draft'          => 'Draft',
+			'pending_review' => 'Pending Review',
+			'published'      => 'Published',
+			'active'         => 'Active',
+			'completed'      => 'Completed',
+			'cancelled'      => 'Cancelled',
+		) );
+		self::select_row( __( 'Visibility', 'wpnt' ), 'wpnt_visibility', $visibility, array(
+			'shared'   => 'Shared (athlete + parent)',
+			'internal' => 'Internal (coach only)',
 		) );
 		self::text_row( __( 'Target Date', 'wpnt' ), 'wpnt_target_date', $target, '', 'date' );
 		self::user_select_row( __( 'Assigned Coach', 'wpnt' ), 'wpnt_assigned_coach', $coach_id, 'wpnt_coach' );
 		echo '</tbody></table>';
+	}
+
+	public static function diary_template_fields( WP_Post $post ): void {
+		wp_nonce_field( 'wpnt_save_meta', 'wpnt_meta_nonce' );
+		$event_types = get_post_meta( $post->ID, '_wpnt_event_types', true );
+		echo '<table class="form-table"><tbody>';
+		self::text_row( __( 'Event Types (comma-separated)', 'wpnt' ), 'wpnt_diary_event_types', $event_types, 'training,competition,event' );
+		echo '</tbody></table>';
+		echo '<p class="description">' . esc_html__( 'Questions are stored as JSON in the post content or via _wpnt_questions meta.', 'wpnt' ) . '</p>';
+	}
+
+	public static function diary_entry_fields( WP_Post $post ): void {
+		wp_nonce_field( 'wpnt_save_meta', 'wpnt_meta_nonce' );
+		$athlete_id  = get_post_meta( $post->ID, '_wpnt_athlete_id', true );
+		$template_id = get_post_meta( $post->ID, '_wpnt_template_id', true );
+		$event_type  = get_post_meta( $post->ID, '_wpnt_event_type', true );
+		$session_id  = get_post_meta( $post->ID, '_wpnt_session_id', true );
+		$status      = get_post_meta( $post->ID, '_wpnt_status', true );
+		?>
+		<p>
+			<label><?php esc_html_e( 'Status', 'wpnt' ); ?><br>
+			<select name="wpnt_diary_status" style="width:100%">
+				<?php foreach ( array( 'draft' => 'Draft', 'submitted' => 'Submitted', 'reviewed' => 'Reviewed' ) as $val => $lbl ) : ?>
+					<option value="<?php echo esc_attr( $val ); ?>"<?php selected( $status, $val ); ?>><?php echo esc_html( $lbl ); ?></option>
+				<?php endforeach; ?>
+			</select></label>
+		</p>
+		<p><strong><?php esc_html_e( 'Athlete ID:', 'wpnt' ); ?></strong> <?php echo esc_html( $athlete_id ?: '—' ); ?></p>
+		<p><strong><?php esc_html_e( 'Template ID:', 'wpnt' ); ?></strong> <?php echo esc_html( $template_id ?: '—' ); ?></p>
+		<p><strong><?php esc_html_e( 'Event Type:', 'wpnt' ); ?></strong> <?php echo esc_html( $event_type ?: '—' ); ?></p>
+		<p><strong><?php esc_html_e( 'Session ID:', 'wpnt' ); ?></strong> <?php echo esc_html( $session_id ?: '—' ); ?></p>
+		<?php
 	}
 
 	// -------------------------------------------------------------------------
@@ -314,6 +375,9 @@ class WPNT_Meta_Boxes {
 			'wpnt_template_id'          => '_wpnt_template_id',
 			'wpnt_actual_notes'         => '_wpnt_actual_notes',
 			// training plan
+			'wpnt_plan_type'            => '_wpnt_plan_type',
+			'wpnt_subject_type'         => '_wpnt_subject_type',
+			'wpnt_subject_id'           => '_wpnt_subject_id',
 			'wpnt_athlete_id'           => '_wpnt_athlete_id',
 			'wpnt_origin'               => '_wpnt_origin',
 			'wpnt_scope'                => '_wpnt_scope',
@@ -321,6 +385,11 @@ class WPNT_Meta_Boxes {
 			'wpnt_planned_activities'   => '_wpnt_planned_activities',
 			'wpnt_target_date'          => '_wpnt_target_date',
 			'wpnt_assigned_coach'       => '_wpnt_assigned_coach',
+			'wpnt_visibility'           => '_wpnt_visibility',
+			// diary template
+			'wpnt_diary_event_types'    => '_wpnt_event_types',
+			// diary entry
+			'wpnt_diary_status'         => '_wpnt_status',
 			// observation
 			'wpnt_obs_session_id'       => '_wpnt_session_id',
 			'wpnt_obs_athlete_id'       => '_wpnt_athlete_id',

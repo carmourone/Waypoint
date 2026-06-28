@@ -37,17 +37,13 @@ if ( waypoint_plugin_active() && ! empty( $enrolled_course_ids ) ) {
 // Attendance history with decoded status.
 $attendance_history = waypoint_plugin_active() ? WPNT_Attendance::get_athlete_attendance( $athlete_id ) : array();
 
-// Training plans approved or active for this athlete.
-$training_plans = array();
+// Training plans for this athlete.
+$training_plans = waypoint_plugin_active() ? WPNT_Training_Plan::get_for_athlete( $athlete_id ) : array();
+
+// Recent diary entries.
+$diary_entries = array();
 if ( waypoint_plugin_active() ) {
-	$training_plans = get_posts( array(
-		'post_type'      => 'wpnt_training_plan',
-		'posts_per_page' => 5,
-		'meta_query'     => array(
-			array( 'key' => '_wpnt_athlete_id', 'value' => $athlete_id ),
-			array( 'key' => '_wpnt_status', 'value' => array( 'approved', 'active' ), 'compare' => 'IN' ),
-		),
-	) );
+	$diary_entries = WPNT_Diary::get_for_athlete( $athlete_id, array( 'per_page' => 5 ) );
 }
 ?>
 
@@ -142,6 +138,31 @@ if ( waypoint_plugin_active() ) {
 							<?php if ( $target ) : ?> &bull; <?php echo esc_html( date_i18n( get_option( 'date_format' ), strtotime( $target ) ) ); ?><?php endif; ?>
 						</p>
 						<?php if ( $goal ) : ?><p class="tp-goal"><?php echo esc_html( $goal ); ?></p><?php endif; ?>
+					</div>
+				<?php endforeach; ?>
+			</div>
+		<?php endif; ?>
+
+	<!-- Diary entries -->
+		<?php if ( ! empty( $diary_entries ) ) : ?>
+			<div class="dashboard-section">
+				<h2 class="dashboard-section-title"><?php esc_html_e( 'My Diary', 'waypoint' ); ?></h2>
+				<?php foreach ( $diary_entries as $entry ) :
+					$entry_status   = get_post_meta( $entry->ID, '_wpnt_status', true );
+					$event_type     = get_post_meta( $entry->ID, '_wpnt_event_type', true );
+					$coach_response = get_post_meta( $entry->ID, '_wpnt_coach_response', true );
+					$response_status = get_post_meta( $entry->ID, '_wpnt_coach_response_status', true );
+				?>
+					<div class="training-plan-item">
+						<h4><a href="<?php echo esc_url( get_permalink( $entry->ID ) ); ?>"><?php echo esc_html( $entry->post_title ); ?></a></h4>
+						<p class="tp-meta">
+							<?php if ( $event_type ) : ?><?php echo esc_html( ucfirst( $event_type ) ); ?><?php endif; ?>
+							&bull; <?php echo esc_html( date_i18n( get_option( 'date_format' ), strtotime( $entry->post_date ) ) ); ?>
+							&bull; <span class="status-pill status-<?php echo esc_attr( $entry_status ); ?>"><?php echo esc_html( ucfirst( $entry_status ) ); ?></span>
+							<?php if ( $response_status === 'published' ) : ?>
+								&bull; <span class="status-pill status-reviewed"><?php esc_html_e( 'Coach responded', 'waypoint' ); ?></span>
+							<?php endif; ?>
+						</p>
 					</div>
 				<?php endforeach; ?>
 			</div>

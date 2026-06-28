@@ -18,9 +18,11 @@ $incomplete     = waypoint_plugin_active() ? WPNT_Session::get_incomplete_attend
 $open_plans     = waypoint_plugin_active() ? get_posts( array(
 	'post_type'      => 'wpnt_training_plan',
 	'posts_per_page' => 10,
-	'meta_key'       => '_wpnt_status',
-	'meta_value'     => 'active',
+	'meta_query'     => array(
+		array( 'key' => '_wpnt_status', 'value' => array( 'active', 'published' ), 'compare' => 'IN' ),
+	),
 ) ) : array();
+$pending_diary  = waypoint_plugin_active() ? WPNT_Diary::get_pending_review() : array();
 ?>
 
 <main id="primary" class="site-main" role="main">
@@ -51,6 +53,10 @@ $open_plans     = waypoint_plugin_active() ? get_posts( array(
 			<div class="dashboard-stat">
 				<div class="stat-num"><?php echo count( $open_plans ); ?></div>
 				<div class="stat-label"><?php esc_html_e( 'Open Training Plans', 'waypoint' ); ?></div>
+			</div>
+			<div class="dashboard-stat">
+				<div class="stat-num"><?php echo count( $pending_diary ); ?></div>
+				<div class="stat-label"><?php esc_html_e( 'Diary Reviews Due', 'waypoint' ); ?></div>
 			</div>
 		</div>
 
@@ -135,6 +141,36 @@ $open_plans     = waypoint_plugin_active() ? get_posts( array(
 					</div>
 				<?php endforeach; ?>
 				<a href="<?php echo esc_url( admin_url( 'admin.php?page=wpnt-training-plans' ) ); ?>" class="btn btn-outline btn-sm"><?php esc_html_e( 'All Training Plans', 'waypoint' ); ?></a>
+			</div>
+		<?php endif; ?>
+
+	<!-- Pending diary reviews -->
+		<?php if ( ! empty( $pending_diary ) ) : ?>
+			<div class="dashboard-section">
+				<h2 class="dashboard-section-title"><?php esc_html_e( 'Diary Entries Awaiting Review', 'waypoint' ); ?></h2>
+				<div class="notice-wp warning"><?php esc_html_e( 'These diary entries have been submitted by athletes and need your response.', 'waypoint' ); ?></div>
+				<table class="widefat" style="margin-top:.5rem">
+					<thead>
+						<tr>
+							<th><?php esc_html_e( 'Entry', 'waypoint' ); ?></th>
+							<th><?php echo esc_html( WPNT_Pack::get_active_label( 'participant_label', __( 'Athlete', 'waypoint' ) ) ); ?></th>
+							<th><?php esc_html_e( 'Date', 'waypoint' ); ?></th>
+						</tr>
+					</thead>
+					<tbody>
+						<?php foreach ( $pending_diary as $entry ) :
+							$athlete_id = (int) get_post_meta( $entry->ID, '_wpnt_athlete_id', true );
+							$athlete    = $athlete_id ? get_user_by( 'id', $athlete_id ) : null;
+						?>
+							<tr>
+								<td><a href="<?php echo esc_url( get_edit_post_link( $entry->ID ) ); ?>"><?php echo esc_html( $entry->post_title ); ?></a></td>
+								<td><?php echo $athlete ? esc_html( $athlete->display_name ) : '—'; ?></td>
+								<td><?php echo esc_html( date_i18n( get_option( 'date_format' ), strtotime( $entry->post_date ) ) ); ?></td>
+							</tr>
+						<?php endforeach; ?>
+					</tbody>
+				</table>
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=wpnt-diary' ) ); ?>" class="btn btn-outline btn-sm" style="margin-top:.5rem"><?php esc_html_e( 'All Diary Entries', 'waypoint' ); ?></a>
 			</div>
 		<?php endif; ?>
 

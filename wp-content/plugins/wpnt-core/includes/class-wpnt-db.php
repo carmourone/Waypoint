@@ -76,6 +76,46 @@ class WPNT_DB {
 			KEY          idx_type  (type_id)
 		) $charset_collate;";
 
+		// Progress records — trend-queryable progress per plan × subject × skill.
+		$sql[] = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}wpnt_progress_records (
+			id           BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+			plan_id      BIGINT(20) UNSIGNED NOT NULL,
+			objective_id BIGINT(20) UNSIGNED NOT NULL DEFAULT 0,
+			subject_type VARCHAR(40)         NOT NULL DEFAULT 'individual',
+			subject_id   BIGINT(20) UNSIGNED NOT NULL,
+			skill_id     BIGINT(20) UNSIGNED NOT NULL DEFAULT 0,
+			session_id   BIGINT(20) UNSIGNED NOT NULL DEFAULT 0,
+			status       VARCHAR(40)         NOT NULL DEFAULT 'not_started',
+			evidence     TEXT                          DEFAULT NULL,
+			coach_note   TEXT                          DEFAULT NULL,
+			visibility   VARCHAR(20)         NOT NULL DEFAULT 'shared',
+			recorded_by  BIGINT(20) UNSIGNED NOT NULL DEFAULT 0,
+			created_at   DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at   DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			UNIQUE KEY   uniq_progress (plan_id, objective_id, subject_type, subject_id, skill_id),
+			KEY          idx_plan      (plan_id),
+			KEY          idx_subject   (subject_type, subject_id),
+			KEY          idx_skill     (skill_id)
+		) $charset_collate;";
+
+		// Diary question responses — trend-queryable per entry × question.
+		$sql[] = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}wpnt_diary_responses (
+			id             BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+			entry_id       BIGINT(20) UNSIGNED NOT NULL,
+			question_id    VARCHAR(80)         NOT NULL,
+			question_type  VARCHAR(40)         NOT NULL DEFAULT 'short_text',
+			scale_type     VARCHAR(40)                   DEFAULT NULL,
+			response_value VARCHAR(255)                  DEFAULT NULL,
+			response_text  TEXT                          DEFAULT NULL,
+			visibility     VARCHAR(20)         NOT NULL DEFAULT 'shared',
+			created_at     DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at     DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			UNIQUE KEY   uniq_response (entry_id, question_id),
+			KEY          idx_entry     (entry_id)
+		) $charset_collate;";
+
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		foreach ( $sql as $query ) {
 			dbDelta( $query );
@@ -91,9 +131,9 @@ class WPNT_DB {
 	public static function maybe_upgrade(): void {
 		$installed = (string) get_option( 'wpnt_db_version', '0' );
 
-		// Fresh install — v6 is the baseline; skip the legacy migration chain entirely.
+		// Fresh install — v7 is the baseline; skip the legacy migration chain entirely.
 		if ( $installed === '0' ) {
-			self::upgrade_to_v6();
+			self::upgrade_to_v7();
 			return;
 		}
 
@@ -112,6 +152,9 @@ class WPNT_DB {
 		}
 		if ( version_compare( $installed, '6', '<' ) ) {
 			self::upgrade_to_v6();
+		}
+		if ( version_compare( $installed, '7', '<' ) ) {
+			self::upgrade_to_v7();
 		}
 	}
 
@@ -219,5 +262,15 @@ class WPNT_DB {
 		// Legacy tables (wpnt_attendance, wpnt_progress, wpnt_session_groups) are left in
 		// place on upgraded installs and are no longer written to by the application.
 		// Drop them manually once historical data is no longer needed.
+	}
+
+	// -------------------------------------------------------------------------
+	// v7: progress records, diary responses, plan_session and objective_skill p2p types
+	// -------------------------------------------------------------------------
+
+	private static function upgrade_to_v7(): void {
+		self::create_tables();
+		WPNT_Graph::seed_types();
+		update_option( 'wpnt_db_version', '7' );
 	}
 }

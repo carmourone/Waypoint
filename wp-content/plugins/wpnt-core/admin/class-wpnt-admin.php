@@ -23,11 +23,12 @@ class WPNT_Admin {
 		$athletes_lbl = WPNT_Pack::get_active_label( 'participant_label_plural', __( 'Athletes', 'wpnt' ) );
 		add_submenu_page( 'wpnt', $athletes_lbl, $athletes_lbl, 'read_private_wpnt_sessions', 'wpnt-sailors', array( __CLASS__, 'page_sailors' ) );
 		add_submenu_page( 'wpnt', __( 'Training Plans', 'wpnt' ), __( 'Training Plans', 'wpnt' ), 'edit_wpnt_training_plans', 'wpnt-training-plans', array( __CLASS__, 'page_training_plans' ) );
+		add_submenu_page( 'wpnt', __( 'Diary', 'wpnt' ), __( 'Diary', 'wpnt' ), 'edit_wpnt_observations', 'wpnt-diary', array( __CLASS__, 'page_diary' ) );
 		add_submenu_page( 'wpnt', __( 'Settings', 'wpnt' ), __( 'Settings', 'wpnt' ), 'manage_options', 'wpnt-settings', array( __CLASS__, 'page_settings' ) );
 	}
 
 	public static function enqueue_assets( string $hook ): void {
-		if ( ! str_contains( $hook, 'wpnt' ) && ! in_array( get_post_type(), array( 'wpnt_course', 'wpnt_session', 'wpnt_training_plan', 'wpnt_skill', 'wpnt_drill', 'wpnt_node', 'wpnt_curriculum', 'wpnt_session_tmpl' ), true ) ) {
+		if ( ! str_contains( $hook, 'wpnt' ) && ! in_array( get_post_type(), array( 'wpnt_course', 'wpnt_session', 'wpnt_training_plan', 'wpnt_skill', 'wpnt_drill', 'wpnt_node', 'wpnt_curriculum', 'wpnt_session_tmpl', 'wpnt_diary_template', 'wpnt_diary_entry' ), true ) ) {
 			return;
 		}
 
@@ -67,6 +68,10 @@ class WPNT_Admin {
 
 	public static function page_training_plans(): void {
 		include WPNT_PLUGIN_DIR . 'admin/views/training-plans.php';
+	}
+
+	public static function page_diary(): void {
+		include WPNT_PLUGIN_DIR . 'admin/views/diary.php';
 	}
 
 	public static function page_settings(): void {

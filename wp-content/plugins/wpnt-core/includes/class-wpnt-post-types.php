@@ -15,6 +15,8 @@ class WPNT_Post_Types {
 		self::register_session();
 		self::register_training_plan();
 		self::register_observation();
+		self::register_diary_template();
+		self::register_diary_entry();
 	}
 
 	private static function register_curriculum_pack(): void {
@@ -134,10 +136,40 @@ class WPNT_Post_Types {
 			'show_ui'             => true,
 			'show_in_menu'        => 'wpnt',
 			'show_in_rest'        => true,
-			'supports'            => array( 'title', 'editor', 'revisions' ),
+			'supports'            => array( 'title', 'editor', 'revisions', 'page-attributes' ),
 			'capability_type'     => array( 'wpnt_training_plan', 'wpnt_training_plans' ),
 			'map_meta_cap'        => true,
+			'hierarchical'        => true,
 			'rewrite'             => array( 'slug' => 'training-plan' ),
+		) );
+	}
+
+	private static function register_diary_template(): void {
+		register_post_type( 'wpnt_diary_template', array(
+			'label'           => __( 'Diary Templates', 'wpnt' ),
+			'labels'          => self::labels( 'Diary Template', 'Diary Templates' ),
+			'public'          => false,
+			'show_ui'         => true,
+			'show_in_menu'    => 'wpnt',
+			'show_in_rest'    => true,
+			'supports'        => array( 'title', 'editor', 'revisions' ),
+			'capability_type' => array( 'wpnt_diary_template', 'wpnt_diary_templates' ),
+			'map_meta_cap'    => true,
+			'rewrite'         => false,
+		) );
+	}
+
+	private static function register_diary_entry(): void {
+		register_post_type( 'wpnt_diary_entry', array(
+			'label'           => __( 'Diary Entries', 'wpnt' ),
+			'labels'          => self::labels( 'Diary Entry', 'Diary Entries' ),
+			'public'          => false,
+			'show_ui'         => false,
+			'show_in_rest'    => false,
+			'supports'        => array( 'title', 'editor' ),
+			'capability_type' => array( 'wpnt_diary_entry', 'wpnt_diary_entries' ),
+			'map_meta_cap'    => true,
+			'rewrite'         => false,
 		) );
 	}
 
