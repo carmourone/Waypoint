@@ -4,92 +4,84 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * A Session Group represents one level/cohort within a session.
+ * A session group is one BP cohort's participation in a session.
  *
- * A single session can contain multiple groups — e.g. Tackers 1 and Tackers 2
- * running concurrently. Each group has its own:
- *   - linked course (which provides the sailor list)
- *   - planned skills (set before)
- *   - actual skills (updated after — may differ completely if conditions changed)
- *   - attendance records (per-sailor, per-group)
- *   - ad-hoc participants (added after the fact, outside normal enrolment)
+ * Stored as a g2p edge: group_id = BP group ID, post_id = session ID.
+ * Edge data holds: label, planned_skills, actual_skills, adhoc_athlete_ids, display_order.
+ *
+ * Group-scoped attendance is stored in wpnt_u2p with context_id = bp_group_id.
+ * Athletes come from BP group membership plus any adhoc_athlete_ids in the edge data.
  */
 class WPNT_Session_Group {
 
 	// -------------------------------------------------------------------------
-	// CRUD
+	// CRUD — identity: (bp_group_id, session_id)
 	// -------------------------------------------------------------------------
 
-	public static function create( int $session_id, array $args ): int|false {
-		global $wpdb;
+	/**
+	 * Create or update a session group edge.
+	 */
+	public static function upsert( int $bp_group_id, int $session_id, array $args ): bool {
+		$current      = self::get( $bp_group_id, $session_id );
+		$current_data = $current ? WPNT_Graph::decode_data( $current->data ) : array();
 
 		$data = array(
-			'session_id'         => $session_id,
-			'course_id'          => absint( $args['course_id'] ?? 0 ) ?: null,
-			'curriculum_node_id' => absint( $args['curriculum_node_id'] ?? 0 ) ?: null,
-			'label'              => sanitize_text_field( $args['label'] ?? '' ),
-			'planned_skills'     => self::encode_ids( $args['planned_skills'] ?? array() ),
-			'actual_skills'      => self::encode_ids( $args['actual_skills'] ?? array() ) ?: null,
-			'adhoc_athlete_ids'  => self::encode_ids( $args['adhoc_athlete_ids'] ?? array() ) ?: null,
-			'display_order'      => absint( $args['display_order'] ?? 0 ),
+			'label'             => sanitize_text_field( $args['label'] ?? $current_data['label'] ?? '' ),
+			'planned_skills'    => array_values( array_filter( array_map( 'absint', (array) ( $args['planned_skills'] ?? $current_data['planned_skills'] ?? array() ) ) ) ),
+			'actual_skills'     => array_values( array_filter( array_map( 'absint', (array) ( $args['actual_skills'] ?? $current_data['actual_skills'] ?? array() ) ) ) ),
+			'adhoc_athlete_ids' => array_values( array_filter( array_map( 'absint', (array) ( $args['adhoc_athlete_ids'] ?? $current_data['adhoc_athlete_ids'] ?? array() ) ) ) ),
+			'display_order'     => (int) ( $args['display_order'] ?? $current_data['display_order'] ?? 0 ),
 		);
 
-		$result = $wpdb->insert( $wpdb->prefix . 'wpnt_session_groups', $data );
-		return $result ? $wpdb->insert_id : false;
+		return WPNT_Graph::upsert_g2p( 'session_group', $bp_group_id, $session_id, $data );
 	}
 
-	public static function update( int $group_id, array $args ): bool {
+	/**
+	 * Delete a session group edge and its group-scoped attendance records.
+	 */
+	public static function delete( int $bp_group_id, int $session_id ): bool {
 		global $wpdb;
-
-		$data = array();
-		if ( isset( $args['label'] ) ) {
-			$data['label'] = sanitize_text_field( $args['label'] );
+		$att_type_id = WPNT_Graph::get_type_id( 'attended' );
+		if ( $att_type_id ) {
+			$wpdb->delete( $wpdb->prefix . 'wpnt_u2p', array(
+				'type_id'    => $att_type_id,
+				'post_id'    => $session_id,
+				'context_id' => $bp_group_id,
+			) );
 		}
-		if ( isset( $args['course_id'] ) ) {
-			$data['course_id'] = absint( $args['course_id'] ) ?: null;
-		}
-		if ( isset( $args['curriculum_node_id'] ) ) {
-			$data['curriculum_node_id'] = absint( $args['curriculum_node_id'] ) ?: null;
-		}
-		if ( isset( $args['planned_skills'] ) ) {
-			$data['planned_skills'] = self::encode_ids( $args['planned_skills'] );
-		}
-		if ( isset( $args['actual_skills'] ) ) {
-			$data['actual_skills'] = self::encode_ids( $args['actual_skills'] );
-		}
-		if ( empty( $data ) ) {
-			return false;
-		}
-
-		return (bool) $wpdb->update(
-			$wpdb->prefix . 'wpnt_session_groups',
-			$data,
-			array( 'id' => $group_id )
-		);
+		return WPNT_Graph::delete_g2p( 'session_group', $bp_group_id, $session_id );
 	}
 
-	public static function delete( int $group_id ): bool {
+	/**
+	 * Fetch a single session group edge.
+	 */
+	public static function get( int $bp_group_id, int $session_id ): ?object {
 		global $wpdb;
-		$wpdb->delete( $wpdb->prefix . 'wpnt_attendance', array( 'session_group_id' => $group_id ) );
-		return (bool) $wpdb->delete( $wpdb->prefix . 'wpnt_session_groups', array( 'id' => $group_id ) );
-	}
-
-	public static function get( int $group_id ): ?object {
-		global $wpdb;
+		$type_id = WPNT_Graph::get_type_id( 'session_group' );
+		if ( ! $type_id ) {
+			return null;
+		}
 		return $wpdb->get_row( $wpdb->prepare(
-			"SELECT * FROM {$wpdb->prefix}wpnt_session_groups WHERE id = %d",
-			$group_id
-		) );
-	}
-
-	public static function get_for_session( int $session_id ): array {
-		global $wpdb;
-		return $wpdb->get_results( $wpdb->prepare(
-			"SELECT * FROM {$wpdb->prefix}wpnt_session_groups
-			 WHERE session_id = %d
-			 ORDER BY display_order ASC, id ASC",
+			"SELECT * FROM {$wpdb->prefix}wpnt_g2p WHERE type_id = %d AND group_id = %d AND post_id = %d",
+			$type_id,
+			$bp_group_id,
 			$session_id
 		) );
+	}
+
+	/**
+	 * Return all session group edges for a session, sorted by display_order.
+	 */
+	public static function get_for_session( int $session_id ): array {
+		$edges = WPNT_Graph::get_g2p( 'session_group', array( 'post_id' => $session_id ) );
+
+		usort( $edges, function ( $a, $b ) {
+			$da = WPNT_Graph::decode_data( $a->data );
+			$db = WPNT_Graph::decode_data( $b->data );
+			return (int) ( $da['display_order'] ?? 0 ) <=> (int) ( $db['display_order'] ?? 0 );
+		} );
+
+		return $edges;
 	}
 
 	// -------------------------------------------------------------------------
@@ -97,154 +89,152 @@ class WPNT_Session_Group {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * All participants for a group — enrolled via the linked course + any ad-hoc additions.
+	 * All athletes for a group — BP group members + any ad-hoc additions.
+	 *
+	 * @param object $edge  A g2p edge row (group_id = bp_group_id, post_id = session_id).
 	 */
-	public static function get_athletes( object $group ): array {
+	public static function get_athletes( object $edge ): array {
 		$athletes = array();
+		$data     = WPNT_Graph::decode_data( $edge->data );
 
-		if ( $group->course_id ) {
-			$athletes = WPNT_Course::get_enrolled_athletes( (int) $group->course_id );
-		}
-
-		if ( $group->adhoc_athlete_ids ) {
-			$adhoc_ids = array_filter( array_map( 'absint', json_decode( $group->adhoc_athlete_ids, true ) ?? array() ) );
-			if ( $adhoc_ids ) {
-				$existing_ids = array_map( fn( $u ) => $u->ID, $athletes );
-				$adhoc_users  = get_users( array( 'include' => $adhoc_ids, 'orderby' => 'display_name' ) );
-				foreach ( $adhoc_users as $u ) {
-					if ( ! in_array( $u->ID, $existing_ids, true ) ) {
-						$athletes[] = $u;
+		if ( function_exists( 'groups_get_group_members' ) ) {
+			$result = groups_get_group_members( array(
+				'group_id'            => (int) $edge->group_id,
+				'per_page'            => 200,
+				'exclude_admins_mods' => false,
+			) );
+			if ( ! empty( $result['members'] ) ) {
+				foreach ( $result['members'] as $member ) {
+					$user = get_userdata( $member->user_id );
+					if ( $user ) {
+						$athletes[] = $user;
 					}
 				}
 			}
 		}
 
-		return $athletes;
+		$adhoc_ids = array_values( array_filter( array_map( 'absint', $data['adhoc_athlete_ids'] ?? array() ) ) );
+		if ( $adhoc_ids ) {
+			$existing_ids = array_map( fn( $u ) => $u->ID, $athletes );
+			$adhoc_users  = get_users( array( 'include' => $adhoc_ids, 'orderby' => 'display_name' ) );
+			foreach ( $adhoc_users as $u ) {
+				if ( ! in_array( $u->ID, $existing_ids, true ) ) {
+					$athletes[] = $u;
+				}
+			}
+		}
+
+		return array_values( $athletes );
 	}
 
 	/**
-	 * Add an athlete to a group outside normal course enrolment.
-	 * Also optionally enrols them in the linked course.
+	 * Add an athlete ad-hoc to a group outside BP group membership.
 	 */
-	public static function add_adhoc_athlete( int $group_id, int $athlete_id, bool $enroll_in_course = false ): bool {
-		global $wpdb;
-
-		$group = self::get( $group_id );
-		if ( ! $group ) {
+	public static function add_adhoc_athlete( int $bp_group_id, int $session_id, int $athlete_id, bool $enroll_in_course = false ): bool {
+		$edge = self::get( $bp_group_id, $session_id );
+		if ( ! $edge ) {
 			return false;
 		}
 
-		$current_ids = $group->adhoc_athlete_ids
-			? array_filter( array_map( 'absint', json_decode( $group->adhoc_athlete_ids, true ) ?? array() ) )
-			: array();
+		$data = WPNT_Graph::decode_data( $edge->data );
+		$ids  = array_values( array_filter( array_map( 'absint', $data['adhoc_athlete_ids'] ?? array() ) ) );
 
-		if ( in_array( $athlete_id, $current_ids, true ) ) {
+		if ( in_array( $athlete_id, $ids, true ) ) {
 			return true;
 		}
 
-		$current_ids[] = $athlete_id;
+		$ids[]                     = $athlete_id;
+		$data['adhoc_athlete_ids'] = $ids;
 
-		$ok = (bool) $wpdb->update(
-			$wpdb->prefix . 'wpnt_session_groups',
-			array( 'adhoc_athlete_ids' => wp_json_encode( array_values( $current_ids ) ) ),
-			array( 'id' => $group_id )
-		);
+		$ok = WPNT_Graph::upsert_g2p( 'session_group', $bp_group_id, $session_id, $data );
 
-		if ( $ok && $enroll_in_course && $group->course_id ) {
-			WPNT_Course::enroll_athlete( (int) $group->course_id, $athlete_id );
+		if ( $ok && $enroll_in_course ) {
+			$course_id = (int) get_post_meta( $session_id, '_wpnt_course_id', true );
+			if ( $course_id ) {
+				WPNT_Course::enroll_athlete( $course_id, $athlete_id );
+			}
 		}
 
 		return $ok;
 	}
 
 	/**
-	 * Remove an ad-hoc athlete from a group (does not unenrol from course).
+	 * Remove an ad-hoc athlete from a group (does not remove BP group membership).
 	 */
-	public static function remove_adhoc_athlete( int $group_id, int $athlete_id ): bool {
-		global $wpdb;
-
-		$group = self::get( $group_id );
-		if ( ! $group || ! $group->adhoc_athlete_ids ) {
+	public static function remove_adhoc_athlete( int $bp_group_id, int $session_id, int $athlete_id ): bool {
+		$edge = self::get( $bp_group_id, $session_id );
+		if ( ! $edge ) {
 			return false;
 		}
 
-		$ids = array_filter( array_map( 'absint', json_decode( $group->adhoc_athlete_ids, true ) ?? array() ) );
-		$ids = array_values( array_diff( $ids, array( $athlete_id ) ) );
+		$data = WPNT_Graph::decode_data( $edge->data );
+		$ids  = array_values( array_filter( array_map( 'absint', $data['adhoc_athlete_ids'] ?? array() ) ) );
+		$ids  = array_values( array_diff( $ids, array( $athlete_id ) ) );
 
-		return (bool) $wpdb->update(
-			$wpdb->prefix . 'wpnt_session_groups',
-			array( 'adhoc_athlete_ids' => wp_json_encode( $ids ) ),
-			array( 'id' => $group_id )
-		);
+		$data['adhoc_athlete_ids'] = $ids;
+		return WPNT_Graph::upsert_g2p( 'session_group', $bp_group_id, $session_id, $data );
 	}
 
 	// -------------------------------------------------------------------------
 	// Skills
 	// -------------------------------------------------------------------------
 
-	public static function get_planned_skills( object $group ): array {
-		return self::decode_skill_posts( $group->planned_skills );
+	public static function get_planned_skills( object $edge ): array {
+		$data = WPNT_Graph::decode_data( $edge->data );
+		return self::fetch_skill_posts( $data['planned_skills'] ?? array() );
 	}
 
-	public static function get_actual_skills( object $group ): array {
-		return self::decode_skill_posts( $group->actual_skills );
-	}
-
-	// -------------------------------------------------------------------------
-	// Attendance helpers (group-scoped)
-	// -------------------------------------------------------------------------
-
-	/**
-	 * Return group-scoped attendance keyed by athlete (user) ID.
-	 * Uses wpnt_u2p with context_id = group_id.
-	 */
-	public static function get_attendance( int $group_id ): array {
-		return WPNT_Attendance::get_session_attendance(
-			(int) self::get_session_id_for_group( $group_id ),
-			$group_id
-		);
-	}
-
-	public static function save_group_attendance( int $session_id, int $group_id, array $records ): array {
-		return WPNT_Attendance::bulk_mark( $session_id, $records, $group_id );
-	}
-
-	private static function get_session_id_for_group( int $group_id ): int {
-		global $wpdb;
-		return (int) $wpdb->get_var( $wpdb->prepare(
-			"SELECT session_id FROM {$wpdb->prefix}wpnt_session_groups WHERE id = %d",
-			$group_id
-		) );
+	public static function get_actual_skills( object $edge ): array {
+		$data = WPNT_Graph::decode_data( $edge->data );
+		return self::fetch_skill_posts( $data['actual_skills'] ?? array() );
 	}
 
 	// -------------------------------------------------------------------------
-	// Rendering helpers
+	// Attendance helpers — context_id = bp_group_id
+	// -------------------------------------------------------------------------
+
+	public static function get_attendance( int $bp_group_id, int $session_id ): array {
+		return WPNT_Attendance::get_session_attendance( $session_id, $bp_group_id );
+	}
+
+	public static function save_group_attendance( int $bp_group_id, int $session_id, array $records ): array {
+		return WPNT_Attendance::bulk_mark( $session_id, $records, $bp_group_id );
+	}
+
+	// -------------------------------------------------------------------------
+	// Rendering
 	// -------------------------------------------------------------------------
 
 	/**
 	 * Render the combined skill + attendance block for a group.
-	 * Used on both the Today admin screen and the front-end session template.
+	 *
+	 * @param object $edge     A g2p edge row (group_id = bp_group_id, post_id = session_id).
+	 * @param bool   $editable Whether to render edit controls.
 	 */
-	public static function render_group_block( object $group, bool $editable = true ): string {
-		$athletes        = self::get_athletes( $group );
-		$planned_skills  = self::get_planned_skills( $group );
-		$actual_skills   = self::get_actual_skills( $group );
-		$attendance      = self::get_attendance( $group->id );
+	public static function render_group_block( object $edge, bool $editable = true ): string {
+		$bp_group_id     = (int) $edge->group_id;
+		$session_id      = (int) $edge->post_id;
+		$data            = WPNT_Graph::decode_data( $edge->data );
+		$athletes        = self::get_athletes( $edge );
+		$planned_skills  = self::get_planned_skills( $edge );
+		$actual_skills   = self::get_actual_skills( $edge );
+		$attendance      = self::get_attendance( $bp_group_id, $session_id );
 		$actual_ids      = array_map( fn( $s ) => $s->ID, $actual_skills );
-		$participant_lbl = WPNT_Pack::get_active_label( 'participant_label', __( 'Athlete', 'wpnt' ) );
+		$participant_lbl  = WPNT_Pack::get_active_label( 'participant_label', __( 'Athlete', 'wpnt' ) );
 		$participants_lbl = WPNT_Pack::get_active_label( 'participant_label_plural', __( 'Athletes', 'wpnt' ) );
 
-		$course_label = $group->label;
-		if ( ! $course_label && $group->course_id ) {
-			$course_label = get_the_title( $group->course_id );
+		$group_label = $data['label'] ?? '';
+		if ( ! $group_label && function_exists( 'groups_get_group' ) ) {
+			$bp_group    = groups_get_group( $bp_group_id );
+			$group_label = $bp_group ? $bp_group->name : '';
 		}
 
 		ob_start();
 		?>
-		<div class="wpnt-group-block" data-group-id="<?php echo esc_attr( $group->id ); ?>">
+		<div class="wpnt-group-block" data-session-id="<?php echo esc_attr( $session_id ); ?>" data-bp-group-id="<?php echo esc_attr( $bp_group_id ); ?>">
 
 			<div class="wpnt-group-header">
-				<h3 class="wpnt-group-title"><?php echo esc_html( $course_label ?: __( 'Group', 'wpnt' ) ); ?></h3>
+				<h3 class="wpnt-group-title"><?php echo esc_html( $group_label ?: __( 'Group', 'wpnt' ) ); ?></h3>
 				<div class="wpnt-group-actions">
 					<?php if ( $editable ) : ?>
 						<button class="button wpnt-toggle-edit-plan"><?php esc_html_e( 'Edit Skills / Plan', 'wpnt' ); ?></button>
@@ -279,7 +269,7 @@ class WPNT_Session_Group {
 						<label><?php esc_html_e( 'Planned Skills', 'wpnt' ); ?></label>
 						<div class="wpnt-skill-picker" data-field="planned_skills">
 							<?php
-							$all_skills = get_posts( array( 'post_type' => 'wpnt_skill', 'posts_per_page' => -1, 'orderby' => 'title', 'order' => 'ASC' ) );
+							$all_skills  = get_posts( array( 'post_type' => 'wpnt_skill', 'posts_per_page' => -1, 'orderby' => 'title', 'order' => 'ASC' ) );
 							$planned_ids = array_map( fn( $s ) => $s->ID, $planned_skills );
 							foreach ( $all_skills as $sk ) :
 							?>
@@ -305,7 +295,8 @@ class WPNT_Session_Group {
 					</div>
 					<div class="wpnt-plan-col wpnt-plan-col-full">
 						<button class="button button-primary wpnt-save-plan"
-							data-group-id="<?php echo esc_attr( $group->id ); ?>">
+							data-session-id="<?php echo esc_attr( $session_id ); ?>"
+							data-bp-group-id="<?php echo esc_attr( $bp_group_id ); ?>">
 							<?php esc_html_e( 'Save Plan', 'wpnt' ); ?>
 						</button>
 					</div>
@@ -314,7 +305,7 @@ class WPNT_Session_Group {
 			<?php endif; ?>
 
 			<!-- Combined attendance + skill table -->
-			<table class="wpnt-group-att-table widefat" data-session-id="<?php echo esc_attr( $group->session_id ); ?>" data-group-id="<?php echo esc_attr( $group->id ); ?>">
+			<table class="wpnt-group-att-table widefat">
 				<thead>
 					<tr>
 						<th><?php echo esc_html( $participant_lbl ); ?></th>
@@ -335,15 +326,16 @@ class WPNT_Session_Group {
 						</td></tr>
 					<?php else : ?>
 						<?php foreach ( $athletes as $athlete ) :
-							$att = $attendance[ $athlete->ID ] ?? null;
+							$att        = $attendance[ $athlete->ID ] ?? null;
 							$att_status = $att ? $att->status : '';
 							$att_notes  = $att ? $att->notes : '';
-							$is_adhoc   = ! $group->course_id || ! in_array( $athlete->ID, array_map( fn( $u ) => $u->ID, WPNT_Course::get_enrolled_athletes( (int) $group->course_id ) ), true );
+							$adhoc_ids  = array_map( 'absint', $data['adhoc_athlete_ids'] ?? array() );
+							$is_adhoc   = in_array( $athlete->ID, $adhoc_ids, true );
 						?>
 							<tr class="wpnt-group-att-row" data-athlete-id="<?php echo esc_attr( $athlete->ID ); ?>">
 								<td>
 									<?php echo esc_html( $athlete->display_name ); ?>
-									<?php if ( $is_adhoc && $group->course_id ) : ?>
+									<?php if ( $is_adhoc ) : ?>
 										<span class="wpnt-adhoc-tag"><?php esc_html_e( 'ad-hoc', 'wpnt' ); ?></span>
 									<?php endif; ?>
 								</td>
@@ -392,10 +384,11 @@ class WPNT_Session_Group {
 										<?php echo esc_html( $att_notes ); ?>
 									<?php endif; ?>
 								</td>
-								<?php if ( $editable && $is_adhoc && $group->course_id ) : ?>
+								<?php if ( $editable && $is_adhoc ) : ?>
 									<td>
 										<button class="button button-small wpnt-remove-adhoc"
-											data-group-id="<?php echo esc_attr( $group->id ); ?>"
+											data-session-id="<?php echo esc_attr( $session_id ); ?>"
+											data-bp-group-id="<?php echo esc_attr( $bp_group_id ); ?>"
 											data-athlete-id="<?php echo esc_attr( $athlete->ID ); ?>">✕</button>
 									</td>
 								<?php elseif ( $editable ) : ?>
@@ -422,19 +415,20 @@ class WPNT_Session_Group {
 							<?php endforeach; ?>
 						</select>
 						<button class="button wpnt-add-athlete-btn"
-							data-group-id="<?php echo esc_attr( $group->id ); ?>">
+							data-session-id="<?php echo esc_attr( $session_id ); ?>"
+							data-bp-group-id="<?php echo esc_attr( $bp_group_id ); ?>">
 							<?php printf( esc_html__( '+ Add %s', 'wpnt' ), esc_html( $participant_lbl ) ); ?>
 						</button>
 						<label class="wpnt-enroll-check">
-							<input type="checkbox" class="wpnt-enroll-in-course" <?php echo $group->course_id ? '' : 'disabled'; ?>>
+							<input type="checkbox" class="wpnt-enroll-in-course">
 							<?php esc_html_e( 'Also enrol in course', 'wpnt' ); ?>
 						</label>
 					</div>
 
 					<!-- Save attendance -->
 					<button class="button button-primary wpnt-save-group-att"
-						data-session-id="<?php echo esc_attr( $group->session_id ); ?>"
-						data-group-id="<?php echo esc_attr( $group->id ); ?>">
+						data-session-id="<?php echo esc_attr( $session_id ); ?>"
+						data-bp-group-id="<?php echo esc_attr( $bp_group_id ); ?>">
 						<?php esc_html_e( 'Save Attendance', 'wpnt' ); ?>
 					</button>
 				</div>
@@ -449,18 +443,8 @@ class WPNT_Session_Group {
 	// Private helpers
 	// -------------------------------------------------------------------------
 
-	private static function encode_ids( mixed $ids ): string {
-		if ( ! $ids ) {
-			return '[]';
-		}
-		return wp_json_encode( array_values( array_filter( array_map( 'absint', (array) $ids ) ) ) );
-	}
-
-	private static function decode_skill_posts( ?string $json ): array {
-		if ( ! $json ) {
-			return array();
-		}
-		$ids = array_filter( array_map( 'absint', json_decode( $json, true ) ?? array() ) );
+	private static function fetch_skill_posts( array $ids ): array {
+		$ids = array_values( array_filter( array_map( 'absint', $ids ) ) );
 		if ( ! $ids ) {
 			return array();
 		}

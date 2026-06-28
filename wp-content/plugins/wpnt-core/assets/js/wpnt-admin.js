@@ -138,7 +138,8 @@
   // -------------------------------------------------------------------
   $(document).on('click', '.wpnt-save-plan', function () {
     const $btn = $(this);
-    const groupId = $btn.data('group-id');
+    const sessionId = $btn.data('session-id');
+    const bpGroupId = $btn.data('bp-group-id');
     const $block = $btn.closest('.wpnt-group-block');
 
     const plannedSkills = [];
@@ -153,7 +154,7 @@
 
     $btn.prop('disabled', true).text(wpntAdmin.l10n.saving);
 
-    apiFetch('session-groups/' + groupId, 'PUT', {
+    apiFetch('sessions/' + sessionId + '/groups/' + bpGroupId, 'PUT', {
       planned_skills: plannedSkills,
       actual_skills: actualSkills,
     })
@@ -173,7 +174,7 @@
   $(document).on('click', '.wpnt-save-group-att', function () {
     const $btn = $(this);
     const sessionId = $btn.data('session-id');
-    const groupId = $btn.data('group-id');
+    const bpGroupId = $btn.data('bp-group-id');
     const $block = $btn.closest('.wpnt-group-block');
     const records = [];
 
@@ -193,8 +194,7 @@
 
     $btn.prop('disabled', true).text(wpntAdmin.l10n.saving);
 
-    apiFetch('session-groups/' + groupId + '/attendance', 'POST', {
-      session_id: sessionId,
+    apiFetch('sessions/' + sessionId + '/groups/' + bpGroupId + '/attendance', 'POST', {
       records: records,
     })
       .done(function () {
@@ -230,7 +230,8 @@
   // -------------------------------------------------------------------
   $(document).on('click', '.wpnt-add-athlete-btn', function () {
     const $btn = $(this);
-    const groupId = $btn.data('group-id');
+    const sessionId = $btn.data('session-id');
+    const bpGroupId = $btn.data('bp-group-id');
     const $row = $btn.closest('.wpnt-add-athlete-row');
     const athleteId = $row.find('.wpnt-athlete-select').val();
     const enroll = $row.find('.wpnt-enroll-in-course').is(':checked');
@@ -242,7 +243,7 @@
 
     $btn.prop('disabled', true);
 
-    apiFetch('session-groups/' + groupId + '/add-athlete', 'POST', {
+    apiFetch('sessions/' + sessionId + '/groups/' + bpGroupId + '/add-athlete', 'POST', {
       athlete_id: parseInt(athleteId, 10),
       enroll_in_course: enroll,
     })
@@ -261,7 +262,7 @@
     if (!confirm(wpntAdmin.l10n.confirm)) return;
 
     apiFetch(
-      'session-groups/' + $btn.data('group-id') + '/athletes/' + $btn.data('athlete-id'),
+      'sessions/' + $btn.data('session-id') + '/groups/' + $btn.data('bp-group-id') + '/athletes/' + $btn.data('athlete-id'),
       'DELETE'
     )
       .done(function () { $btn.closest('tr').fadeOut(200, function () { $(this).remove(); }); })
@@ -274,12 +275,13 @@
   $(document).on('click', '.wpnt-add-group', function () {
     const $btn = $(this);
     const sessionId = $btn.data('session-id');
-    const label = prompt('Group label (e.g. "Tackers 1" or "Tackers 2"):');
-    if (!label) return;
+    const bpGroupId = parseInt(prompt('BuddyPress Group ID for this cohort:'), 10);
+    if (!bpGroupId) return;
+    const label = prompt('Group label (e.g. "Tackers 1"):') || '';
 
     $btn.prop('disabled', true);
 
-    apiFetch('sessions/' + sessionId + '/groups', 'POST', { label: label })
+    apiFetch('sessions/' + sessionId + '/groups', 'POST', { bp_group_id: bpGroupId, label: label })
       .done(function () { location.reload(); })
       .fail(function () {
         $btn.prop('disabled', false);

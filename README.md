@@ -39,8 +39,8 @@ WordPress and BuddyPress provide primary storage. Custom tables hold only typed 
 | BP Groups | Course cohorts — enrollment IS BP group membership |
 | BP Friends | Parent ↔ athlete relationship (drives parent read-access) |
 | `wpnt_u2p` | User → Post edges (attendance, skill assessment) |
-| `wpnt_p2p` | Post → Post edges (session→course, session→skill, plan→skill) |
-| `wpnt_g2p` | BP Group → Post edges (squad enrolled in course) |
+| `wpnt_p2p` | Post → Post edges (domain pack types only — none built-in) |
+| `wpnt_g2p` | BP Group → Post edges (`session_group`: which cohort attends which session) |
 | `wpnt_types` | Edge type registry — domain packs add types here |
 
 ### Domain packs
@@ -109,30 +109,32 @@ wp-content/plugins/wpnt-{sport}/
 |---|---|
 | `wp_wpnt_types` | Edge type registry — extensible by domain packs |
 | `wp_wpnt_u2p` | User → Post edges (attendance, assessment) |
-| `wp_wpnt_p2p` | Post → Post edges (session→course, session→skill, plan→skill) |
-| `wp_wpnt_g2p` | BP Group → Post edges (squad enrolled in course) |
+| `wp_wpnt_p2p` | Post → Post edges (domain pack types only) |
+| `wp_wpnt_g2p` | BP Group → Post edges (session groups) |
 
-The schema is fixed at v5 for all new installs. Installs upgrading from v1–v4 run incremental migrations then land on v5; legacy tables are left in place for manual data review.
+The schema is fixed at v6 for all new installs. Installs upgrading from v1–v5 run incremental migrations then land on v6; legacy tables (`wpnt_attendance`, `wpnt_progress`, `wpnt_session_groups`) are left in place for manual data review.
 
 ## REST API
 
 All dynamic operations go through `wpnt/v1/`. Key endpoints:
 
 ```
-GET  /sessions/today
-GET  /sessions/upcoming
-GET  /sessions/{id}/groups
-POST /sessions/{id}/groups
-PUT  /session-groups/{id}
-POST /session-groups/{id}/attendance
-POST /session-groups/{id}/add-athlete
-POST /attendance
-POST /observations
-POST /progress
-POST /course/{id}/generate-sessions
-POST /course/{id}/enroll
-GET  /athletes
-GET  /athletes/{id}
+GET    /sessions/today
+GET    /sessions/upcoming
+GET    /sessions/{id}/groups
+POST   /sessions/{id}/groups
+PUT    /sessions/{id}/groups/{bp_group_id}
+DELETE /sessions/{id}/groups/{bp_group_id}
+POST   /sessions/{id}/groups/{bp_group_id}/attendance
+POST   /sessions/{id}/groups/{bp_group_id}/add-athlete
+DELETE /sessions/{id}/groups/{bp_group_id}/athletes/{athlete_id}
+POST   /attendance
+POST   /observations
+POST   /progress
+POST   /course/{id}/generate-sessions
+POST   /course/{id}/enroll
+GET    /athletes
+GET    /athletes/{id}
 ```
 
 ## Roles

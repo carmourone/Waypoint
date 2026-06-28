@@ -42,7 +42,7 @@ wp-content/
 
 ## Database schema
 
-Four custom tables. Older installs may also have legacy tables (`wpnt_attendance`, `wpnt_progress`, `wpnt_session_groups`) left in place after the v5 migration — the application no longer writes to them.
+Four custom tables. Older installs may also have legacy tables (`wpnt_attendance`, `wpnt_progress`, `wpnt_session_groups`) left in place after the v6 migration — the application no longer writes to them.
 
 ### `wpnt_types` — edge type registry
 ```
@@ -55,7 +55,7 @@ UNIQUE (pack, name)
 id, type_id, user_id, post_id, context_id DEFAULT 0, data JSON, created_at, updated_at
 UNIQUE (type_id, user_id, post_id, context_id)
 ```
-`context_id` is an optional discriminator — used for group-scoped attendance (set to the session_groups row id). Zero means ungrouped.
+`context_id` is an optional discriminator — used for group-scoped attendance (set to the BP group ID). Zero means ungrouped / single-cohort session.
 
 Built-in types: `attended`, `assessed`
 
@@ -64,14 +64,17 @@ Built-in types: `attended`, `assessed`
 id, type_id, source_id, target_id, data JSON, created_at, updated_at
 UNIQUE (type_id, source_id, target_id)
 ```
-Built-in types: `session_of` (session→course), `covers` (session→skill), `planned` (training_plan→skill)
+No built-in types. Domain packs register types here via `WPNT_Graph::register_type()`.
 
 ### `wpnt_g2p` — BP Group → Post edges
 ```
 id, type_id, group_id, post_id, data JSON, created_at, updated_at
 UNIQUE (type_id, group_id, post_id)
 ```
-Built-in types: `enrolled` (squad/group enrolled in a course)
+Built-in types: `session_group` (BP cohort group participating in a session — replaces the old `wpnt_session_groups` table)
+
+`session_group` edge data: `{label, planned_skills[], actual_skills[], adhoc_athlete_ids[], display_order}`
+Group-scoped attendance uses `context_id = bp_group_id` in `wpnt_u2p`.
 
 ## Content model
 
@@ -84,9 +87,9 @@ WordPress and BuddyPress provide primary storage — custom tables only hold typ
 | WP Post Meta | `_wpnt_*` fields on posts |
 | BP Groups | Course cohorts — enrollment IS group membership (`bp_groups_members`) |
 | BP Friends | Parent ↔ athlete social relationship (drives parent authorization) |
-| `wpnt_u2p` | Attendance, skill assessment |
-| `wpnt_p2p` | Session→course, session→skill, plan→skill linkage |
-| `wpnt_g2p` | Squad enrolled in course |
+| `wpnt_u2p` | Attendance (`attended`), skill assessment (`assessed`) |
+| `wpnt_p2p` | Domain pack edge types only — no built-in core types |
+| `wpnt_g2p` | Session groups (`session_group`) — which BP cohort attends which session |
 
 ## Authorization
 

@@ -91,9 +91,9 @@ class WPNT_DB {
 	public static function maybe_upgrade(): void {
 		$installed = (string) get_option( 'wpnt_db_version', '0' );
 
-		// Fresh install — v5 is the baseline; skip the legacy migration chain entirely.
+		// Fresh install — v6 is the baseline; skip the legacy migration chain entirely.
 		if ( $installed === '0' ) {
-			self::upgrade_to_v5();
+			self::upgrade_to_v6();
 			return;
 		}
 
@@ -109,6 +109,9 @@ class WPNT_DB {
 		}
 		if ( version_compare( $installed, '5', '<' ) ) {
 			self::upgrade_to_v5();
+		}
+		if ( version_compare( $installed, '6', '<' ) ) {
+			self::upgrade_to_v6();
 		}
 	}
 
@@ -192,12 +195,27 @@ class WPNT_DB {
 	}
 
 	// -------------------------------------------------------------------------
-	// v5: graph-based schema — the baseline for all new installs
+	// v5: graph-based schema
 	// -------------------------------------------------------------------------
 
 	private static function upgrade_to_v5(): void {
 		self::create_tables();
 		WPNT_Graph::seed_types();
+	}
+
+	// -------------------------------------------------------------------------
+	// v6: session_group g2p type; remove unused aspirational edge types
+	// -------------------------------------------------------------------------
+
+	private static function upgrade_to_v6(): void {
+		global $wpdb;
+		self::create_tables();
+		WPNT_Graph::seed_types();
+		// Remove aspirational types seeded in v5 that are not used by any code.
+		foreach ( array( 'session_of', 'covers', 'planned', 'enrolled' ) as $name ) {
+			$wpdb->delete( $wpdb->prefix . 'wpnt_types', array( 'pack' => 'core', 'name' => $name ) );
+		}
+		WPNT_Graph::clear_type_cache();
 		// Legacy tables (wpnt_attendance, wpnt_progress, wpnt_session_groups) are left in
 		// place on upgraded installs and are no longer written to by the application.
 		// Drop them manually once historical data is no longer needed.
