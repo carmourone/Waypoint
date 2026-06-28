@@ -194,57 +194,27 @@ class WPNT_Session_Group {
 	// Attendance helpers (group-scoped)
 	// -------------------------------------------------------------------------
 
+	/**
+	 * Return group-scoped attendance keyed by athlete (user) ID.
+	 * Uses wpnt_u2p with context_id = group_id.
+	 */
 	public static function get_attendance( int $group_id ): array {
-		global $wpdb;
-		$rows = $wpdb->get_results( $wpdb->prepare(
-			"SELECT * FROM {$wpdb->prefix}wpnt_attendance WHERE session_group_id = %d",
+		return WPNT_Attendance::get_session_attendance(
+			(int) self::get_session_id_for_group( $group_id ),
 			$group_id
-		) );
-
-		$indexed = array();
-		foreach ( $rows as $row ) {
-			$indexed[ (int) $row->athlete_id ] = $row;
-		}
-		return $indexed;
+		);
 	}
 
 	public static function save_group_attendance( int $session_id, int $group_id, array $records ): array {
-		$results = array();
-		foreach ( $records as $record ) {
-			$athlete_id = absint( $record['athlete_id'] ?? 0 );
-			$status     = sanitize_text_field( $record['status'] ?? '' );
-			$notes      = sanitize_textarea_field( $record['notes'] ?? '' );
-			if ( ! $athlete_id || ! $status ) {
-				continue;
-			}
-			$results[ $athlete_id ] = self::upsert_group_attendance( $session_id, $group_id, $athlete_id, $status, $notes );
-		}
-		return $results;
+		return WPNT_Attendance::bulk_mark( $session_id, $records, $group_id );
 	}
 
-	private static function upsert_group_attendance( int $session_id, int $group_id, int $athlete_id, string $status, string $notes = '' ): bool {
+	private static function get_session_id_for_group( int $group_id ): int {
 		global $wpdb;
-		$table = $wpdb->prefix . 'wpnt_attendance';
-
-		$existing = $wpdb->get_var( $wpdb->prepare(
-			"SELECT id FROM {$table} WHERE session_id = %d AND athlete_id = %d AND session_group_id = %d",
-			$session_id, $athlete_id, $group_id
+		return (int) $wpdb->get_var( $wpdb->prepare(
+			"SELECT session_id FROM {$wpdb->prefix}wpnt_session_groups WHERE id = %d",
+			$group_id
 		) );
-
-		$data = array(
-			'status'           => $status,
-			'notes'            => $notes,
-			'recorded_by'      => get_current_user_id(),
-			'session_group_id' => $group_id,
-		);
-
-		if ( $existing ) {
-			return (bool) $wpdb->update( $table, $data, array( 'id' => (int) $existing ) );
-		}
-
-		$data['session_id'] = $session_id;
-		$data['athlete_id'] = $athlete_id;
-		return (bool) $wpdb->insert( $table, $data );
 	}
 
 	// -------------------------------------------------------------------------

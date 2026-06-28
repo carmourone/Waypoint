@@ -118,8 +118,13 @@ class WPNT_Session {
 		$sessions = get_posts( $args );
 
 		return array_filter( $sessions, function( $s ) use ( $wpdb ) {
+			$type_id = WPNT_Graph::get_type_id( 'attended' );
+			if ( ! $type_id ) {
+				return true;
+			}
 			$count = $wpdb->get_var( $wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->prefix}wpnt_attendance WHERE session_id = %d",
+				"SELECT COUNT(*) FROM {$wpdb->prefix}wpnt_u2p WHERE type_id = %d AND post_id = %d",
+				$type_id,
 				$s->ID
 			) );
 			return (int) $count === 0;
