@@ -106,10 +106,19 @@ Checks in order:
 | Role | Description |
 |---|---|
 | `wpnt_org_admin` | Full access to all data and settings |
-| `wpnt_coach` | Manage courses, sessions, attendance, observations, training plans |
+| `wpnt_head_coach` | Everything a coach can do, plus review and approve content before it reaches athletes/parents — **post-v0, not yet implemented** |
+| `wpnt_coach` | Manage courses, sessions, attendance, observations, training plans; in v0 publishes directly without approval |
 | `wpnt_asst_coach` | Mark attendance and add observations; cannot manage courses |
 | `wpnt_parent` | Read-only view of all coach–child communications and shared content (scoped via BP friendship) |
 | `wpnt_athlete` | Read-only view of own courses, progress, and published feedback |
+
+### Head coach approval workflow (post-v0)
+
+When `wpnt_head_coach` is introduced, coaches will submit content for review rather than publishing directly. The head coach reviews and approves before the content becomes visible to athletes and parents.
+
+Content types that will go through approval: training plan athlete-facing summaries, coach observations shared with athletes, coach diary responses.
+
+**Design constraint for v0**: all content that will eventually need approval status must use `_wpnt_status` with values that include `draft`, `pending_review`, and `published`. In v0, coach actions move content straight to `published`. In a future version, they move it to `pending_review` and the head coach moves it to `published`. Do not use boolean published/unpublished — the status field must be extensible now.
 
 ## Child safety and privacy
 
