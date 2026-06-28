@@ -14,11 +14,25 @@ get_header();
 $parent_id = get_current_user_id();
 $user      = wp_get_current_user();
 
-// Children linked to this parent via user meta.
-$child_ids = get_user_meta( $parent_id, 'wpnt_children', true );
-$child_ids = $child_ids ? array_filter( array_map( 'absint', explode( ',', $child_ids ) ) ) : array();
+// Resolve children: BP friends who are athletes (preferred) or explicit meta link.
+$child_ids = array();
+if ( function_exists( 'friends_get_friend_user_ids' ) ) {
+	$friend_ids = friends_get_friend_user_ids( $parent_id );
+	if ( $friend_ids ) {
+		$child_ids = get_users( array(
+			'include' => $friend_ids,
+			'role'    => 'wpnt_athlete',
+			'fields'  => 'ID',
+		) );
+		$child_ids = array_map( 'intval', $child_ids );
+	}
+}
+if ( empty( $child_ids ) ) {
+	$meta      = get_user_meta( $parent_id, 'wpnt_children', true );
+	$child_ids = $meta ? array_filter( array_map( 'absint', explode( ',', $meta ) ) ) : array();
+}
 
-$children = $child_ids ? get_users( array( 'include' => $child_ids ) ) : array();
+$children = $child_ids ? get_users( array( 'include' => array_values( $child_ids ) ) ) : array();
 ?>
 
 <main id="primary" class="site-main" role="main">
@@ -34,25 +48,16 @@ $children = $child_ids ? get_users( array( 'include' => $child_ids ) ) : array()
 
 		<?php if ( empty( $children ) ) : ?>
 			<div class="notice-wp info">
-				<?php esc_html_e( 'No children are linked to your account yet. Please contact your organisation administrator.', 'waypoint' ); ?>
+				<?php esc_html_e( 'No athletes are linked to your account yet. Please contact your organisation administrator.', 'waypoint' ); ?>
 			</div>
 		<?php endif; ?>
 
 		<?php foreach ( $children as $child ) :
-			global $wpdb;
-			$course_ids = $wpdb->get_col( $wpdb->prepare(
-				"SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = '_wpnt_enrolled_sailors' AND meta_value LIKE %s",
-				'%' . $wpdb->esc_like( (string) $child->ID ) . '%'
-			) );
+			$enrolled_courses = waypoint_plugin_active() ? WPNT_Course::get_courses_for_athlete( $child->ID ) : array();
+			$course_ids       = array_map( fn( $c ) => $c->ID, $enrolled_courses );
 
-			$enrolled_courses = $course_ids ? get_posts( array(
-				'post_type'      => 'wpnt_course',
-				'include'        => $course_ids,
-				'posts_per_page' => -1,
-			) ) : array();
-
-			$today     = current_time( 'Y-m-d' );
-			$upcoming  = $course_ids ? get_posts( array(
+			$today    = current_time( 'Y-m-d' );
+			$upcoming = $course_ids ? get_posts( array(
 				'post_type'      => 'wpnt_session',
 				'posts_per_page' => 5,
 				'meta_query'     => array(
@@ -64,7 +69,7 @@ $children = $child_ids ? get_users( array( 'include' => $child_ids ) ) : array()
 				'order'    => 'ASC',
 			) ) : array();
 
-			$att_history = WPNT_DB::get_athlete_attendance( $child->ID );
+			$att_history = waypoint_plugin_active() ? WPNT_Attendance::get_athlete_attendance( $child->ID ) : array();
 			$att_counts  = array_count_values( array_column( $att_history, 'status' ) );
 			$total       = count( $att_history );
 			$attended    = $att_counts['attended'] ?? 0;
@@ -106,7 +111,7 @@ $children = $child_ids ? get_users( array( 'include' => $child_ids ) ) : array()
 					</ul>
 				<?php endif; ?>
 
-				<!-- Attendance -->
+				<!-- Attendance summary -->
 				<?php if ( $total ) : ?>
 					<h3><?php esc_html_e( 'Attendance', 'waypoint' ); ?></h3>
 					<div class="att-summary-bar mb-2">
@@ -114,6 +119,14 @@ $children = $child_ids ? get_users( array( 'include' => $child_ids ) ) : array()
 							<span class="att-chip att-<?php echo esc_attr( $s ); ?>"><?php echo esc_html( ucfirst( str_replace( '_', ' ', $s ) ) ); ?>: <?php echo esc_html( $c ); ?></span>
 						<?php endforeach; ?>
 					</div>
+					<?php if ( $total ) :
+						$pct = round( $attended / $total * 100 );
+					?>
+						<div class="progress-bar-wrap mb-2">
+							<div class="wpnt-progress-bar" style="max-width:200px"><div class="wpnt-progress-bar-fill" data-pct="<?php echo esc_attr( $pct ); ?>" style="width:<?php echo esc_attr( $pct ); ?>%"></div></div>
+							<small><?php printf( esc_html__( '%d%% (%d/%d)', 'waypoint' ), $pct, $attended, $total ); ?></small>
+						</div>
+					<?php endif; ?>
 				<?php endif; ?>
 
 				<!-- Approved training plans -->

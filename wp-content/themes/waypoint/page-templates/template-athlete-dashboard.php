@@ -14,32 +14,18 @@ get_header();
 $athlete_id = get_current_user_id();
 $user       = wp_get_current_user();
 
-// Courses this athlete is enrolled in.
-$enrolled_courses = array();
-if ( waypoint_plugin_active() ) {
-	global $wpdb;
-	$course_ids = $wpdb->get_col( $wpdb->prepare(
-		"SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = '_wpnt_enrolled_sailors' AND meta_value LIKE %s",
-		'%' . $wpdb->esc_like( (string) $athlete_id ) . '%'
-	) );
-	if ( $course_ids ) {
-		$enrolled_courses = get_posts( array(
-			'post_type' => 'wpnt_course',
-			'include'   => $course_ids,
-			'posts_per_page' => -1,
-		) );
-	}
-}
+$enrolled_courses  = waypoint_plugin_active() ? WPNT_Course::get_courses_for_athlete( $athlete_id ) : array();
+$enrolled_course_ids = array_map( fn( $c ) => $c->ID, $enrolled_courses );
 
-// Upcoming sessions.
+// Upcoming sessions across enrolled courses.
 $upcoming_sessions = array();
-if ( waypoint_plugin_active() && ! empty( $course_ids ) ) {
-	$today = current_time( 'Y-m-d' );
+if ( waypoint_plugin_active() && ! empty( $enrolled_course_ids ) ) {
+	$today             = current_time( 'Y-m-d' );
 	$upcoming_sessions = get_posts( array(
 		'post_type'      => 'wpnt_session',
 		'posts_per_page' => 8,
 		'meta_query'     => array(
-			array( 'key' => '_wpnt_course_id', 'value' => $course_ids, 'compare' => 'IN' ),
+			array( 'key' => '_wpnt_course_id', 'value' => $enrolled_course_ids, 'compare' => 'IN' ),
 			array( 'key' => '_wpnt_scheduled_start', 'value' => $today . 'T00:00', 'compare' => '>=', 'type' => 'CHAR' ),
 		),
 		'orderby'  => 'meta_value',
@@ -48,10 +34,10 @@ if ( waypoint_plugin_active() && ! empty( $course_ids ) ) {
 	) );
 }
 
-// Attendance history.
-$attendance_history = waypoint_plugin_active() ? WPNT_DB::get_athlete_attendance( $athlete_id ) : array();
+// Attendance history with decoded status.
+$attendance_history = waypoint_plugin_active() ? WPNT_Attendance::get_athlete_attendance( $athlete_id ) : array();
 
-// Training plans.
+// Training plans approved or active for this athlete.
 $training_plans = array();
 if ( waypoint_plugin_active() ) {
 	$training_plans = get_posts( array(
@@ -124,9 +110,9 @@ if ( waypoint_plugin_active() ) {
 				<h2 class="dashboard-section-title"><?php esc_html_e( 'Attendance History', 'waypoint' ); ?></h2>
 				<?php
 				$att_counts = array_count_values( array_column( $attendance_history, 'status' ) );
-				$total = count( $attendance_history );
-				$attended = $att_counts['attended'] ?? 0;
-				$pct = $total ? round( $attended / $total * 100 ) : 0;
+				$total      = count( $attendance_history );
+				$attended   = $att_counts['attended'] ?? 0;
+				$pct        = $total ? round( $attended / $total * 100 ) : 0;
 				?>
 				<div class="att-summary-bar mb-2">
 					<?php foreach ( $att_counts as $s => $count ) : ?>
@@ -145,9 +131,9 @@ if ( waypoint_plugin_active() ) {
 			<div class="dashboard-section">
 				<h2 class="dashboard-section-title"><?php esc_html_e( 'My Training Plans', 'waypoint' ); ?></h2>
 				<?php foreach ( $training_plans as $plan ) :
-					$goal    = get_post_meta( $plan->ID, '_wpnt_goal', true );
-					$scope   = get_post_meta( $plan->ID, '_wpnt_scope', true );
-					$target  = get_post_meta( $plan->ID, '_wpnt_target_date', true );
+					$goal   = get_post_meta( $plan->ID, '_wpnt_goal', true );
+					$scope  = get_post_meta( $plan->ID, '_wpnt_scope', true );
+					$target = get_post_meta( $plan->ID, '_wpnt_target_date', true );
 				?>
 					<div class="training-plan-item">
 						<h4><a href="<?php echo esc_url( get_permalink( $plan->ID ) ); ?>"><?php echo esc_html( $plan->post_title ); ?></a></h4>

@@ -73,6 +73,51 @@ class WPNT_Course {
 		) );
 	}
 
+	/**
+	 * Return all courses an athlete is enrolled in — BP group membership first, postmeta fallback.
+	 */
+	public static function get_courses_for_athlete( int $athlete_id ): array {
+		$course_ids = array();
+
+		// Via BP group membership.
+		if ( function_exists( 'groups_get_user_groups' ) ) {
+			$result  = groups_get_user_groups( $athlete_id );
+			$g_ids   = ! empty( $result['groups'] ) ? wp_list_pluck( $result['groups'], 'id' ) : array();
+			if ( $g_ids ) {
+				global $wpdb;
+				$placeholders = implode( ',', array_fill( 0, count( $g_ids ), '%d' ) );
+				// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+				$bp_ids = $wpdb->get_col( $wpdb->prepare(
+					"SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = '_wpnt_bp_group_id' AND meta_value IN ($placeholders)",
+					$g_ids
+				) );
+				$course_ids = array_merge( $course_ids, array_map( 'intval', $bp_ids ) );
+			}
+		}
+
+		// Via postmeta enrollment list (comma-separated IDs).
+		global $wpdb;
+		$like        = '%' . $wpdb->esc_like( (string) $athlete_id ) . '%';
+		$meta_ids    = $wpdb->get_col( $wpdb->prepare(
+			"SELECT post_id FROM {$wpdb->postmeta}
+			 WHERE meta_key IN ('_wpnt_enrolled_athletes', '_wpnt_enrolled_sailors')
+			 AND meta_value LIKE %s",
+			$like
+		) );
+		$course_ids = array_unique( array_merge( $course_ids, array_map( 'intval', $meta_ids ) ) );
+
+		if ( empty( $course_ids ) ) {
+			return array();
+		}
+
+		return get_posts( array(
+			'post_type'      => 'wpnt_course',
+			'include'        => $course_ids,
+			'posts_per_page' => -1,
+			'post_status'    => 'publish',
+		) );
+	}
+
 	public static function get_enrolled_athletes( int $course_id ): array {
 		// Prefer BP group membership when available.
 		$group_id = (int) get_post_meta( $course_id, '_wpnt_bp_group_id', true );
