@@ -108,8 +108,59 @@ Checks in order:
 | `wpnt_org_admin` | Full access to all data and settings |
 | `wpnt_coach` | Manage courses, sessions, attendance, observations, training plans |
 | `wpnt_asst_coach` | Mark attendance and add observations; cannot manage courses |
-| `wpnt_parent` | Read-only view of child's data (scoped via BP friendship) |
+| `wpnt_parent` | Read-only view of all coach–child communications and shared content (scoped via BP friendship) |
 | `wpnt_athlete` | Read-only view of own courses, progress, and published feedback |
+
+## Child safety and privacy
+
+**Non-negotiable.** Waypoint must comply with Australian child safe standards and EU GDPR for minors. These rules cannot be overridden by club admins, domain packs, or feature flags.
+
+### The core principle
+
+Anything a coach shares with a minor athlete is also visible to that athlete's parent or guardian by default, without any opt-out.
+
+A parent is a protective layer, not an optional audience. The system must never create a communication channel between a coach and a minor that bypasses the parent.
+
+### Visibility rules
+
+| Content type | Athlete | Parent/guardian | Coach | Org admin |
+|---|---|---|---|---|
+| Attendance records | ✓ | ✓ always | ✓ | ✓ |
+| Session notes shared with athlete | ✓ | ✓ always | ✓ | ✓ |
+| Coach observations shared with athlete | ✓ | ✓ always | ✓ | ✓ |
+| Training plan content (athlete-facing) | ✓ | ✓ always | ✓ | ✓ |
+| Coach responses to diary entries | ✓ | ✓ always | ✓ | ✓ |
+| Internal coach professional notes (not shared with athlete) | — | — | ✓ | ✓ |
+| Athlete diary entry (athlete-authored) | ✓ | configurable per club/age | coach-review only | ✓ |
+
+The critical distinction:
+- **Communication** = any content the coach addresses to or shares with the athlete. Always parent-visible. No exceptions.
+- **Internal note** = professional record the coach keeps for their own purposes, never shared with the athlete. These are legitimately coach-only and are not communications.
+
+If a note is visible to the athlete, it is visible to the parent. There is no middle state.
+
+### Athlete diary privacy
+
+Diary entries are athlete-authored. They are not coach communications. Club admins may configure whether parents can read diary entries, subject to:
+- Age of the athlete (older teens may have greater diary privacy)
+- Club safeguarding policy
+- Applicable jurisdiction rules
+
+However, **coach responses to a diary entry are always parent-visible**, regardless of whether the underlying diary entry is.
+
+### Implementation rules
+
+1. Every content-producing feature (observations, training plan summaries, diary responses, session feedback) must carry a `_wpnt_visibility` field with at minimum two states: `shared` (athlete + parent + coach) and `internal` (coach + org_admin only).
+2. The default for any coach-authored content shared with an athlete is `shared`. Code must never default to `internal` for coach-athlete communications.
+3. `WPNT_Graph::can_view_athlete_data()` already grants parent access via confirmed BP friendship. All new content queries must respect this — never bypass it with direct `get_posts()` or `get_post_meta()` calls without a visibility check.
+4. No feature, setting, or domain pack may introduce a mechanism that allows coach-to-minor communications to be hidden from that minor's parent.
+5. Data retention: parents may request erasure of their minor child's data. Build with the assumption that records will need to be hard-deleted, not just soft-deleted, per GDPR Art. 17.
+
+### Compliance context
+
+- **Australia**: National Principles for Child Safe Organisations (2019), state child safe standards, Privacy Act 1988 (Australian Privacy Principles). Principle 4 (families and communities) and Principle 6 (complaints) require transparent family communication and oversight.
+- **EU/UK**: GDPR Art. 8 (children under 16 require parental consent for data processing in most member states), Art. 15 (parents have access rights to data processed about their minor child), Art. 17 (right to erasure).
+- **Minimum age threshold**: treat anyone under 18 as a minor for the purposes of these rules unless jurisdiction-specific guidance requires a lower threshold.
 
 ## Domain packs
 
