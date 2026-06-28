@@ -60,6 +60,7 @@ class WPNT_Attendance {
 
 	/**
 	 * Return all attendance edges for an athlete, optionally filtered to sessions in a course.
+	 * Each row has synthetic ->status and ->notes properties decoded from the JSON data column.
 	 */
 	public static function get_athlete_attendance( int $athlete_id, int $course_id = 0 ): array {
 		if ( $course_id ) {
@@ -81,13 +82,20 @@ class WPNT_Attendance {
 			}
 			$placeholders = implode( ',', array_fill( 0, count( $session_ids ), '%d' ) );
 			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
-			return $wpdb->get_results( $wpdb->prepare(
+			$rows = $wpdb->get_results( $wpdb->prepare(
 				"SELECT * FROM {$wpdb->prefix}wpnt_u2p WHERE type_id = %d AND user_id = %d AND post_id IN ($placeholders)",
 				array_merge( array( $type_id, $athlete_id ), $session_ids )
 			) );
+		} else {
+			$rows = WPNT_Graph::get_u2p( 'attended', array( 'user_id' => $athlete_id ) );
 		}
 
-		return WPNT_Graph::get_u2p( 'attended', array( 'user_id' => $athlete_id ) );
+		foreach ( $rows as $row ) {
+			$data        = WPNT_Graph::decode_data( $row->data );
+			$row->status = $data['status'] ?? '';
+			$row->notes  = $data['notes']  ?? '';
+		}
+		return $rows;
 	}
 
 	/**
