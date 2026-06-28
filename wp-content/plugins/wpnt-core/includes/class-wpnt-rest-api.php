@@ -81,7 +81,7 @@ class WPNT_REST_API {
 			'permission_callback' => array( __CLASS__, 'can_manage_courses' ),
 		) );
 
-		// Session Groups
+		// Session Groups — identity: (session_id, bp_group_id)
 		register_rest_route( $ns, '/sessions/(?P<session_id>\d+)/groups', array(
 			array(
 				'methods'             => 'GET',
@@ -92,10 +92,13 @@ class WPNT_REST_API {
 				'methods'             => 'POST',
 				'callback'            => array( __CLASS__, 'create_session_group' ),
 				'permission_callback' => array( __CLASS__, 'can_mark_attendance' ),
+				'args'                => array(
+					'bp_group_id' => array( 'required' => true, 'sanitize_callback' => 'absint' ),
+				),
 			),
 		) );
 
-		register_rest_route( $ns, '/session-groups/(?P<group_id>\d+)', array(
+		register_rest_route( $ns, '/sessions/(?P<session_id>\d+)/groups/(?P<bp_group_id>\d+)', array(
 			array(
 				'methods'             => 'PUT',
 				'callback'            => array( __CLASS__, 'update_session_group' ),
@@ -108,19 +111,25 @@ class WPNT_REST_API {
 			),
 		) );
 
-		register_rest_route( $ns, '/session-groups/(?P<group_id>\d+)/attendance', array(
+		register_rest_route( $ns, '/sessions/(?P<session_id>\d+)/groups/(?P<bp_group_id>\d+)/attendance', array(
 			'methods'             => 'POST',
 			'callback'            => array( __CLASS__, 'save_group_attendance' ),
 			'permission_callback' => array( __CLASS__, 'can_mark_attendance' ),
+			'args'                => array(
+				'records' => array( 'required' => true ),
+			),
 		) );
 
-		register_rest_route( $ns, '/session-groups/(?P<group_id>\d+)/add-athlete', array(
+		register_rest_route( $ns, '/sessions/(?P<session_id>\d+)/groups/(?P<bp_group_id>\d+)/add-athlete', array(
 			'methods'             => 'POST',
 			'callback'            => array( __CLASS__, 'add_athlete_to_group' ),
 			'permission_callback' => array( __CLASS__, 'can_mark_attendance' ),
+			'args'                => array(
+				'athlete_id' => array( 'required' => true, 'sanitize_callback' => 'absint' ),
+			),
 		) );
 
-		register_rest_route( $ns, '/session-groups/(?P<group_id>\d+)/athletes/(?P<athlete_id>\d+)', array(
+		register_rest_route( $ns, '/sessions/(?P<session_id>\d+)/groups/(?P<bp_group_id>\d+)/athletes/(?P<athlete_id>\d+)', array(
 			'methods'             => 'DELETE',
 			'callback'            => array( __CLASS__, 'remove_athlete_from_group' ),
 			'permission_callback' => array( __CLASS__, 'can_mark_attendance' ),
@@ -152,8 +161,8 @@ class WPNT_REST_API {
 
 	public static function get_attendance( WP_REST_Request $request ): WP_REST_Response {
 		$session_id = (int) $request->get_param( 'session_id' );
-		$rows       = WPNT_DB::get_session_attendance( $session_id );
-		return new WP_REST_Response( $rows, 200 );
+		$rows       = WPNT_Attendance::get_session_attendance( $session_id );
+		return new WP_REST_Response( array_values( $rows ), 200 );
 	}
 
 	public static function save_observation( WP_REST_Request $request ): WP_REST_Response {
@@ -251,7 +260,17 @@ class WPNT_REST_API {
 			return new WP_REST_Response( array( 'error' => 'athlete_id and status are required' ), 400 );
 		}
 
-		$ok = WPNT_DB::upsert_progress( $athlete_id, $status, $skill_id, $node_id, $evidence );
+		$post_id = $skill_id ?: $node_id;
+		if ( ! $post_id ) {
+			return new WP_REST_Response( array( 'error' => 'skill_id or curriculum_node_id required' ), 400 );
+		}
+
+		$ok = WPNT_Graph::upsert_u2p( 'assessed', $athlete_id, $post_id, array(
+			'status'      => $status,
+			'evidence'    => $evidence,
+			'coach_id'    => get_current_user_id(),
+			'assessed_at' => current_time( 'mysql' ),
+		) );
 		return new WP_REST_Response( array( 'saved' => $ok ), $ok ? 200 : 500 );
 	}
 
@@ -260,7 +279,8 @@ class WPNT_REST_API {
 		if ( ! self::can_view_athlete_id( $athlete_id ) ) {
 			return new WP_REST_Response( array( 'error' => 'Forbidden' ), 403 );
 		}
-		return new WP_REST_Response( WPNT_DB::get_athlete_progress( $athlete_id ), 200 );
+		$rows = WPNT_Graph::get_u2p( 'assessed', array( 'user_id' => $athlete_id ) );
+		return new WP_REST_Response( $rows, 200 );
 	}
 
 	public static function get_todays_sessions( WP_REST_Request $request ): WP_REST_Response {
@@ -293,98 +313,118 @@ class WPNT_REST_API {
 
 	public static function get_session_groups( WP_REST_Request $request ): WP_REST_Response {
 		$session_id = (int) $request['session_id'];
-		$groups     = WPNT_Session_Group::get_for_session( $session_id );
-		return new WP_REST_Response( $groups, 200 );
+		$edges      = WPNT_Session_Group::get_for_session( $session_id );
+		$data       = array_map( function ( $edge ) {
+			$d = WPNT_Graph::decode_data( $edge->data );
+			return array(
+				'bp_group_id'       => (int) $edge->group_id,
+				'session_id'        => (int) $edge->post_id,
+				'label'             => $d['label'] ?? '',
+				'planned_skills'    => $d['planned_skills'] ?? array(),
+				'actual_skills'     => $d['actual_skills'] ?? array(),
+				'adhoc_athlete_ids' => $d['adhoc_athlete_ids'] ?? array(),
+				'display_order'     => (int) ( $d['display_order'] ?? 0 ),
+			);
+		}, $edges );
+		return new WP_REST_Response( $data, 200 );
 	}
 
 	public static function create_session_group( WP_REST_Request $request ): WP_REST_Response {
-		$session_id = (int) $request['session_id'];
-		$args       = array(
-			'label'              => sanitize_text_field( $request->get_param( 'label' ) ?? '' ),
-			'course_id'          => absint( $request->get_param( 'course_id' ) ),
-			'curriculum_node_id' => absint( $request->get_param( 'curriculum_node_id' ) ),
-			'planned_skills'     => (array) ( $request->get_param( 'planned_skills' ) ?? array() ),
-			'display_order'      => absint( $request->get_param( 'display_order' ) ),
+		$session_id  = (int) $request['session_id'];
+		$bp_group_id = absint( $request->get_param( 'bp_group_id' ) );
+
+		if ( ! $bp_group_id ) {
+			return new WP_REST_Response( array( 'error' => 'bp_group_id required' ), 400 );
+		}
+
+		$args = array(
+			'label'          => sanitize_text_field( $request->get_param( 'label' ) ?? '' ),
+			'planned_skills' => (array) ( $request->get_param( 'planned_skills' ) ?? array() ),
+			'display_order'  => absint( $request->get_param( 'display_order' ) ),
 		);
 
-		$id = WPNT_Session_Group::create( $session_id, $args );
-		if ( ! $id ) {
+		$ok = WPNT_Session_Group::upsert( $bp_group_id, $session_id, $args );
+		if ( ! $ok ) {
 			return new WP_REST_Response( array( 'error' => 'Failed to create group' ), 500 );
 		}
-		return new WP_REST_Response( array( 'id' => $id ), 201 );
+		return new WP_REST_Response( array( 'bp_group_id' => $bp_group_id, 'session_id' => $session_id ), 201 );
 	}
 
 	public static function update_session_group( WP_REST_Request $request ): WP_REST_Response {
-		$group_id = (int) $request['group_id'];
-		$args     = array();
+		$session_id  = (int) $request['session_id'];
+		$bp_group_id = (int) $request['bp_group_id'];
+		$args        = array();
 
-		foreach ( array( 'label', 'course_id', 'curriculum_node_id', 'planned_skills', 'actual_skills' ) as $key ) {
+		foreach ( array( 'label', 'planned_skills', 'actual_skills', 'display_order' ) as $key ) {
 			$val = $request->get_param( $key );
 			if ( $val !== null ) {
 				$args[ $key ] = $val;
 			}
 		}
 
-		$ok = WPNT_Session_Group::update( $group_id, $args );
+		$ok = WPNT_Session_Group::upsert( $bp_group_id, $session_id, $args );
 		return new WP_REST_Response( array( 'updated' => $ok ), $ok ? 200 : 500 );
 	}
 
 	public static function delete_session_group( WP_REST_Request $request ): WP_REST_Response {
-		$group_id = (int) $request['group_id'];
-		$ok       = WPNT_Session_Group::delete( $group_id );
+		$session_id  = (int) $request['session_id'];
+		$bp_group_id = (int) $request['bp_group_id'];
+		$ok          = WPNT_Session_Group::delete( $bp_group_id, $session_id );
 		return new WP_REST_Response( array( 'deleted' => $ok ), $ok ? 200 : 500 );
 	}
 
 	public static function save_group_attendance( WP_REST_Request $request ): WP_REST_Response {
-		$group_id   = (int) $request['group_id'];
-		$session_id = absint( $request->get_param( 'session_id' ) );
-		$records    = $request->get_param( 'records' );
+		$session_id  = (int) $request['session_id'];
+		$bp_group_id = (int) $request['bp_group_id'];
+		$records     = $request->get_param( 'records' );
 
-		if ( ! $session_id || ! is_array( $records ) ) {
-			return new WP_REST_Response( array( 'error' => 'session_id and records are required' ), 400 );
+		if ( ! is_array( $records ) ) {
+			return new WP_REST_Response( array( 'error' => 'records must be an array' ), 400 );
 		}
 
-		$results = WPNT_Session_Group::save_group_attendance( $session_id, $group_id, $records );
+		$results = WPNT_Session_Group::save_group_attendance( $bp_group_id, $session_id, $records );
 
-		// Update progress for each skill checked per athlete.
 		foreach ( $records as $record ) {
 			$athlete_id = absint( $record['athlete_id'] ?? 0 );
 			$skills     = array_filter( array_map( 'absint', (array) ( $record['skills'] ?? array() ) ) );
 			if ( $athlete_id && $skills ) {
 				foreach ( $skills as $skill_id ) {
-					WPNT_DB::upsert_progress( $athlete_id, 'practising', $skill_id );
+					WPNT_Graph::upsert_u2p( 'assessed', $athlete_id, $skill_id, array(
+						'status'      => 'practising',
+						'coach_id'    => get_current_user_id(),
+						'assessed_at' => current_time( 'mysql' ),
+					) );
 				}
 			}
 		}
 
-		// Mark session as delivered if still scheduled.
-		if ( $session_id ) {
-			$current = get_post_meta( $session_id, '_wpnt_status', true );
-			if ( $current === 'scheduled' ) {
-				update_post_meta( $session_id, '_wpnt_status', 'delivered' );
-			}
+		$current = get_post_meta( $session_id, '_wpnt_status', true );
+		if ( $current === 'scheduled' ) {
+			update_post_meta( $session_id, '_wpnt_status', 'delivered' );
 		}
 
 		return new WP_REST_Response( array( 'saved' => $results ), 200 );
 	}
 
 	public static function add_athlete_to_group( WP_REST_Request $request ): WP_REST_Response {
-		$group_id   = (int) $request['group_id'];
-		$athlete_id = absint( $request->get_param( 'athlete_id' ) );
-		$enroll     = (bool) $request->get_param( 'enroll_in_course' );
+		$session_id  = (int) $request['session_id'];
+		$bp_group_id = (int) $request['bp_group_id'];
+		$athlete_id  = absint( $request->get_param( 'athlete_id' ) );
+		$enroll      = (bool) $request->get_param( 'enroll_in_course' );
 
 		if ( ! $athlete_id ) {
 			return new WP_REST_Response( array( 'error' => 'athlete_id required' ), 400 );
 		}
 
-		$ok = WPNT_Session_Group::add_adhoc_athlete( $group_id, $athlete_id, $enroll );
+		$ok = WPNT_Session_Group::add_adhoc_athlete( $bp_group_id, $session_id, $athlete_id, $enroll );
 		return new WP_REST_Response( array( 'added' => $ok ), $ok ? 200 : 500 );
 	}
 
 	public static function remove_athlete_from_group( WP_REST_Request $request ): WP_REST_Response {
-		$group_id   = (int) $request['group_id'];
-		$athlete_id = (int) $request['athlete_id'];
-		$ok         = WPNT_Session_Group::remove_adhoc_athlete( $group_id, $athlete_id );
+		$session_id  = (int) $request['session_id'];
+		$bp_group_id = (int) $request['bp_group_id'];
+		$athlete_id  = (int) $request['athlete_id'];
+		$ok          = WPNT_Session_Group::remove_adhoc_athlete( $bp_group_id, $session_id, $athlete_id );
 		return new WP_REST_Response( array( 'removed' => $ok ), $ok ? 200 : 500 );
 	}
 
@@ -417,11 +457,7 @@ class WPNT_REST_API {
 	}
 
 	private static function can_view_athlete_id( int $athlete_id ): bool {
-		$user_id = get_current_user_id();
-		if ( current_user_can( 'manage_options' ) || current_user_can( 'read_private_wpnt_sessions' ) ) {
-			return true;
-		}
-		return $user_id === $athlete_id;
+		return WPNT_Graph::can_view_athlete_data( get_current_user_id(), $athlete_id );
 	}
 
 	// -------------------------------------------------------------------------

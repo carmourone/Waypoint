@@ -74,7 +74,18 @@ class WPNT_Course {
 	}
 
 	public static function get_enrolled_athletes( int $course_id ): array {
-		$ids = get_post_meta( $course_id, '_wpnt_enrolled_sailors', true );
+		// Prefer BP group membership when available.
+		$group_id = (int) get_post_meta( $course_id, '_wpnt_bp_group_id', true );
+		if ( $group_id && function_exists( 'groups_get_group_members' ) ) {
+			$result = groups_get_group_members( array( 'group_id' => $group_id, 'per_page' => -1 ) );
+			if ( ! empty( $result['members'] ) ) {
+				return $result['members'];
+			}
+		}
+
+		// Fall back to postmeta-stored ID list (legacy / BP-less installs).
+		$ids = get_post_meta( $course_id, '_wpnt_enrolled_athletes', true )
+			?: get_post_meta( $course_id, '_wpnt_enrolled_sailors', true ); // pre-v5 key
 		if ( ! $ids ) {
 			return array();
 		}
@@ -89,20 +100,32 @@ class WPNT_Course {
 	}
 
 	public static function enroll_athlete( int $course_id, int $athlete_id ): bool {
-		$current = get_post_meta( $course_id, '_wpnt_enrolled_sailors', true );
+		// Sync to BP group when available.
+		$group_id = (int) get_post_meta( $course_id, '_wpnt_bp_group_id', true );
+		if ( $group_id && function_exists( 'groups_join_group' ) ) {
+			groups_join_group( $group_id, $athlete_id );
+		}
+
+		$current = get_post_meta( $course_id, '_wpnt_enrolled_athletes', true );
 		$ids     = $current ? array_filter( array_map( 'absint', explode( ',', $current ) ) ) : array();
 		if ( in_array( $athlete_id, $ids, true ) ) {
 			return true;
 		}
 		$ids[] = $athlete_id;
-		return (bool) update_post_meta( $course_id, '_wpnt_enrolled_sailors', implode( ',', $ids ) );
+		return (bool) update_post_meta( $course_id, '_wpnt_enrolled_athletes', implode( ',', $ids ) );
 	}
 
 	public static function unenroll_athlete( int $course_id, int $athlete_id ): bool {
-		$current = get_post_meta( $course_id, '_wpnt_enrolled_sailors', true );
+		// Sync removal from BP group when available.
+		$group_id = (int) get_post_meta( $course_id, '_wpnt_bp_group_id', true );
+		if ( $group_id && function_exists( 'groups_remove_member' ) ) {
+			groups_remove_member( $athlete_id, $group_id );
+		}
+
+		$current = get_post_meta( $course_id, '_wpnt_enrolled_athletes', true );
 		$ids     = $current ? array_filter( array_map( 'absint', explode( ',', $current ) ) ) : array();
 		$ids     = array_values( array_diff( $ids, array( $athlete_id ) ) );
-		return (bool) update_post_meta( $course_id, '_wpnt_enrolled_sailors', implode( ',', $ids ) );
+		return (bool) update_post_meta( $course_id, '_wpnt_enrolled_athletes', implode( ',', $ids ) );
 	}
 
 	private static function add_ninety_minutes( string $time ): string {
