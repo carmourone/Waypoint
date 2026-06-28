@@ -80,6 +80,51 @@ class WPNT_REST_API {
 			'callback'            => array( __CLASS__, 'enroll_sailor' ),
 			'permission_callback' => array( __CLASS__, 'can_manage_courses' ),
 		) );
+
+		// Session Groups
+		register_rest_route( $ns, '/sessions/(?P<session_id>\d+)/groups', array(
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( __CLASS__, 'get_session_groups' ),
+				'permission_callback' => array( __CLASS__, 'can_view_attendance' ),
+			),
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( __CLASS__, 'create_session_group' ),
+				'permission_callback' => array( __CLASS__, 'can_mark_attendance' ),
+			),
+		) );
+
+		register_rest_route( $ns, '/session-groups/(?P<group_id>\d+)', array(
+			array(
+				'methods'             => 'PUT',
+				'callback'            => array( __CLASS__, 'update_session_group' ),
+				'permission_callback' => array( __CLASS__, 'can_mark_attendance' ),
+			),
+			array(
+				'methods'             => 'DELETE',
+				'callback'            => array( __CLASS__, 'delete_session_group' ),
+				'permission_callback' => array( __CLASS__, 'can_mark_attendance' ),
+			),
+		) );
+
+		register_rest_route( $ns, '/session-groups/(?P<group_id>\d+)/attendance', array(
+			'methods'             => 'POST',
+			'callback'            => array( __CLASS__, 'save_group_attendance' ),
+			'permission_callback' => array( __CLASS__, 'can_mark_attendance' ),
+		) );
+
+		register_rest_route( $ns, '/session-groups/(?P<group_id>\d+)/add-sailor', array(
+			'methods'             => 'POST',
+			'callback'            => array( __CLASS__, 'add_sailor_to_group' ),
+			'permission_callback' => array( __CLASS__, 'can_mark_attendance' ),
+		) );
+
+		register_rest_route( $ns, '/session-groups/(?P<group_id>\d+)/sailors/(?P<sailor_id>\d+)', array(
+			'methods'             => 'DELETE',
+			'callback'            => array( __CLASS__, 'remove_sailor_from_group' ),
+			'permission_callback' => array( __CLASS__, 'can_mark_attendance' ),
+		) );
 	}
 
 	// -------------------------------------------------------------------------
@@ -188,6 +233,103 @@ class WPNT_REST_API {
 		}
 		$ok = WPNT_Course::enroll_sailor( $course_id, $sailor_id );
 		return new WP_REST_Response( array( 'enrolled' => $ok ), $ok ? 200 : 500 );
+	}
+
+	public static function get_session_groups( WP_REST_Request $request ): WP_REST_Response {
+		$session_id = (int) $request['session_id'];
+		$groups     = WPNT_Session_Group::get_for_session( $session_id );
+		return new WP_REST_Response( $groups, 200 );
+	}
+
+	public static function create_session_group( WP_REST_Request $request ): WP_REST_Response {
+		$session_id = (int) $request['session_id'];
+		$args       = array(
+			'label'              => sanitize_text_field( $request->get_param( 'label' ) ?? '' ),
+			'course_id'          => absint( $request->get_param( 'course_id' ) ),
+			'curriculum_node_id' => absint( $request->get_param( 'curriculum_node_id' ) ),
+			'planned_skills'     => (array) ( $request->get_param( 'planned_skills' ) ?? array() ),
+			'display_order'      => absint( $request->get_param( 'display_order' ) ),
+		);
+
+		$id = WPNT_Session_Group::create( $session_id, $args );
+		if ( ! $id ) {
+			return new WP_REST_Response( array( 'error' => 'Failed to create group' ), 500 );
+		}
+		return new WP_REST_Response( array( 'id' => $id ), 201 );
+	}
+
+	public static function update_session_group( WP_REST_Request $request ): WP_REST_Response {
+		$group_id = (int) $request['group_id'];
+		$args     = array();
+
+		foreach ( array( 'label', 'course_id', 'curriculum_node_id', 'planned_skills', 'actual_skills' ) as $key ) {
+			$val = $request->get_param( $key );
+			if ( $val !== null ) {
+				$args[ $key ] = $val;
+			}
+		}
+
+		$ok = WPNT_Session_Group::update( $group_id, $args );
+		return new WP_REST_Response( array( 'updated' => $ok ), $ok ? 200 : 500 );
+	}
+
+	public static function delete_session_group( WP_REST_Request $request ): WP_REST_Response {
+		$group_id = (int) $request['group_id'];
+		$ok       = WPNT_Session_Group::delete( $group_id );
+		return new WP_REST_Response( array( 'deleted' => $ok ), $ok ? 200 : 500 );
+	}
+
+	public static function save_group_attendance( WP_REST_Request $request ): WP_REST_Response {
+		$group_id   = (int) $request['group_id'];
+		$session_id = absint( $request->get_param( 'session_id' ) );
+		$records    = $request->get_param( 'records' );
+
+		if ( ! $session_id || ! is_array( $records ) ) {
+			return new WP_REST_Response( array( 'error' => 'session_id and records are required' ), 400 );
+		}
+
+		$results = WPNT_Session_Group::save_group_attendance( $session_id, $group_id, $records );
+
+		// Update progress for each skill checked per sailor.
+		foreach ( $records as $record ) {
+			$sailor_id = absint( $record['sailor_id'] ?? 0 );
+			$skills    = array_filter( array_map( 'absint', (array) ( $record['skills'] ?? array() ) ) );
+			if ( $sailor_id && $skills ) {
+				foreach ( $skills as $skill_id ) {
+					WPNT_DB::upsert_progress( $sailor_id, 'practising', $skill_id );
+				}
+			}
+		}
+
+		// Mark session as delivered if still scheduled.
+		if ( $session_id ) {
+			$current = get_post_meta( $session_id, '_wpnt_status', true );
+			if ( $current === 'scheduled' ) {
+				update_post_meta( $session_id, '_wpnt_status', 'delivered' );
+			}
+		}
+
+		return new WP_REST_Response( array( 'saved' => $results ), 200 );
+	}
+
+	public static function add_sailor_to_group( WP_REST_Request $request ): WP_REST_Response {
+		$group_id  = (int) $request['group_id'];
+		$sailor_id = absint( $request->get_param( 'sailor_id' ) );
+		$enroll    = (bool) $request->get_param( 'enroll_in_course' );
+
+		if ( ! $sailor_id ) {
+			return new WP_REST_Response( array( 'error' => 'sailor_id required' ), 400 );
+		}
+
+		$ok = WPNT_Session_Group::add_adhoc_sailor( $group_id, $sailor_id, $enroll );
+		return new WP_REST_Response( array( 'added' => $ok ), $ok ? 200 : 500 );
+	}
+
+	public static function remove_sailor_from_group( WP_REST_Request $request ): WP_REST_Response {
+		$group_id  = (int) $request['group_id'];
+		$sailor_id = (int) $request['sailor_id'];
+		$ok        = WPNT_Session_Group::remove_adhoc_sailor( $group_id, $sailor_id );
+		return new WP_REST_Response( array( 'removed' => $ok ), $ok ? 200 : 500 );
 	}
 
 	// -------------------------------------------------------------------------

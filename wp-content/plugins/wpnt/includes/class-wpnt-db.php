@@ -11,20 +11,38 @@ class WPNT_DB {
 
 		$sql = array();
 
-		// Attendance — row-like, frequently queried, not a good fit for post meta.
-		$sql[] = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}wpnt_attendance (
-			id            BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-			session_id    BIGINT(20) UNSIGNED NOT NULL,
-			sailor_id     BIGINT(20) UNSIGNED NOT NULL,
-			status        VARCHAR(30)         NOT NULL DEFAULT 'attended',
-			notes         TEXT                         DEFAULT NULL,
-			recorded_by   BIGINT(20) UNSIGNED          DEFAULT NULL,
-			created_at    DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			updated_at    DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+		// Session Groups — one record per cohort/level within a session (v2+).
+		$sql[] = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}wpnt_session_groups (
+			id                   BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+			session_id           BIGINT(20) UNSIGNED NOT NULL,
+			course_id            BIGINT(20) UNSIGNED          DEFAULT NULL,
+			curriculum_node_id   BIGINT(20) UNSIGNED          DEFAULT NULL,
+			label                VARCHAR(255)                 DEFAULT NULL,
+			planned_skills       LONGTEXT                     DEFAULT NULL COMMENT 'JSON array of skill post IDs',
+			actual_skills        LONGTEXT                     DEFAULT NULL COMMENT 'JSON array of skill post IDs',
+			adhoc_sailor_ids     LONGTEXT                     DEFAULT NULL COMMENT 'JSON array of user IDs',
+			display_order        TINYINT(3) UNSIGNED NOT NULL DEFAULT 0,
 			PRIMARY KEY  (id),
-			UNIQUE KEY   session_sailor (session_id, sailor_id),
-			KEY          idx_session  (session_id),
-			KEY          idx_sailor   (sailor_id)
+			KEY idx_sg_session (session_id),
+			KEY idx_sg_course  (course_id)
+		) $charset_collate;";
+
+		// Attendance — session_group_id = 0 for ungrouped sessions (v2+).
+		$sql[] = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}wpnt_attendance (
+			id                BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+			session_id        BIGINT(20) UNSIGNED NOT NULL,
+			sailor_id         BIGINT(20) UNSIGNED NOT NULL,
+			session_group_id  BIGINT(20) UNSIGNED NOT NULL DEFAULT 0,
+			status            VARCHAR(30)         NOT NULL DEFAULT 'attended',
+			notes             TEXT                         DEFAULT NULL,
+			recorded_by       BIGINT(20) UNSIGNED          DEFAULT NULL,
+			created_at        DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at        DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			UNIQUE KEY   session_sailor_group (session_id, sailor_id, session_group_id),
+			KEY          idx_att_session  (session_id),
+			KEY          idx_att_sailor   (sailor_id),
+			KEY          idx_att_group    (session_group_id)
 		) $charset_collate;";
 
 		// Progress records — structured assessment against a skill or curriculum node.
@@ -70,6 +88,40 @@ class WPNT_DB {
 		}
 
 		update_option( 'wpnt_db_version', WPNT_DB_VERSION );
+	}
+
+	/**
+	 * Run incremental schema upgrades on plugin load when the stored version is behind.
+	 */
+	public static function maybe_upgrade(): void {
+		$installed = get_option( 'wpnt_db_version', '0' );
+		if ( version_compare( $installed, '2', '<' ) ) {
+			self::upgrade_to_v2();
+		}
+	}
+
+	private static function upgrade_to_v2(): void {
+		global $wpdb;
+		$att = $wpdb->prefix . 'wpnt_attendance';
+
+		// Add session_group_id column if missing.
+		$col = $wpdb->get_results( "SHOW COLUMNS FROM {$att} LIKE 'session_group_id'" );
+		if ( empty( $col ) ) {
+			$wpdb->query( "ALTER TABLE {$att} ADD COLUMN session_group_id BIGINT(20) UNSIGNED NOT NULL DEFAULT 0 AFTER sailor_id" );
+		}
+
+		// Replace old UNIQUE KEY with the new three-column one.
+		$old = $wpdb->get_results( "SHOW INDEX FROM {$att} WHERE Key_name = 'session_sailor'" );
+		if ( ! empty( $old ) ) {
+			$wpdb->query( "ALTER TABLE {$att} DROP INDEX session_sailor" );
+		}
+		$new = $wpdb->get_results( "SHOW INDEX FROM {$att} WHERE Key_name = 'session_sailor_group'" );
+		if ( empty( $new ) ) {
+			$wpdb->query( "ALTER TABLE {$att} ADD UNIQUE KEY session_sailor_group (session_id, sailor_id, session_group_id)" );
+		}
+
+		// Create the session_groups table and bump the stored version.
+		self::create_tables();
 	}
 
 	// -------------------------------------------------------------------------
@@ -184,6 +236,15 @@ class WPNT_DB {
 		return $wpdb->get_results( $wpdb->prepare(
 			"SELECT * FROM {$wpdb->prefix}wpnt_progress WHERE sailor_id = %d",
 			$sailor_id
+		) );
+	}
+
+	public static function get_progress_for_sailor_skill( int $sailor_id, int $skill_id ): ?object {
+		global $wpdb;
+		return $wpdb->get_row( $wpdb->prepare(
+			"SELECT * FROM {$wpdb->prefix}wpnt_progress WHERE sailor_id = %d AND skill_id = %d ORDER BY assessed_at DESC LIMIT 1",
+			$sailor_id,
+			$skill_id
 		) );
 	}
 
