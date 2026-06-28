@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *   - planned skills (set before)
  *   - actual skills (updated after — may differ completely if conditions changed)
  *   - attendance records (per-sailor, per-group)
- *   - ad-hoc sailors (added after the fact, outside normal enrolment)
+ *   - ad-hoc participants (added after the fact, outside normal enrolment)
  */
 class WPNT_Session_Group {
 
@@ -30,7 +30,7 @@ class WPNT_Session_Group {
 			'label'              => sanitize_text_field( $args['label'] ?? '' ),
 			'planned_skills'     => self::encode_ids( $args['planned_skills'] ?? array() ),
 			'actual_skills'      => self::encode_ids( $args['actual_skills'] ?? array() ) ?: null,
-			'adhoc_sailor_ids'   => self::encode_ids( $args['adhoc_sailor_ids'] ?? array() ) ?: null,
+			'adhoc_athlete_ids'  => self::encode_ids( $args['adhoc_athlete_ids'] ?? array() ) ?: null,
 			'display_order'      => absint( $args['display_order'] ?? 0 ),
 		);
 
@@ -106,8 +106,8 @@ class WPNT_Session_Group {
 			$athletes = WPNT_Course::get_enrolled_athletes( (int) $group->course_id );
 		}
 
-		if ( $group->adhoc_sailor_ids ) {
-			$adhoc_ids = array_filter( array_map( 'absint', json_decode( $group->adhoc_sailor_ids, true ) ?? array() ) );
+		if ( $group->adhoc_athlete_ids ) {
+			$adhoc_ids = array_filter( array_map( 'absint', json_decode( $group->adhoc_athlete_ids, true ) ?? array() ) );
 			if ( $adhoc_ids ) {
 				$existing_ids = array_map( fn( $u ) => $u->ID, $athletes );
 				$adhoc_users  = get_users( array( 'include' => $adhoc_ids, 'orderby' => 'display_name' ) );
@@ -134,8 +134,8 @@ class WPNT_Session_Group {
 			return false;
 		}
 
-		$current_ids = $group->adhoc_sailor_ids
-			? array_filter( array_map( 'absint', json_decode( $group->adhoc_sailor_ids, true ) ?? array() ) )
+		$current_ids = $group->adhoc_athlete_ids
+			? array_filter( array_map( 'absint', json_decode( $group->adhoc_athlete_ids, true ) ?? array() ) )
 			: array();
 
 		if ( in_array( $athlete_id, $current_ids, true ) ) {
@@ -146,7 +146,7 @@ class WPNT_Session_Group {
 
 		$ok = (bool) $wpdb->update(
 			$wpdb->prefix . 'wpnt_session_groups',
-			array( 'adhoc_sailor_ids' => wp_json_encode( array_values( $current_ids ) ) ),
+			array( 'adhoc_athlete_ids' => wp_json_encode( array_values( $current_ids ) ) ),
 			array( 'id' => $group_id )
 		);
 
@@ -164,16 +164,16 @@ class WPNT_Session_Group {
 		global $wpdb;
 
 		$group = self::get( $group_id );
-		if ( ! $group || ! $group->adhoc_sailor_ids ) {
+		if ( ! $group || ! $group->adhoc_athlete_ids ) {
 			return false;
 		}
 
-		$ids = array_filter( array_map( 'absint', json_decode( $group->adhoc_sailor_ids, true ) ?? array() ) );
+		$ids = array_filter( array_map( 'absint', json_decode( $group->adhoc_athlete_ids, true ) ?? array() ) );
 		$ids = array_values( array_diff( $ids, array( $athlete_id ) ) );
 
 		return (bool) $wpdb->update(
 			$wpdb->prefix . 'wpnt_session_groups',
-			array( 'adhoc_sailor_ids' => wp_json_encode( $ids ) ),
+			array( 'adhoc_athlete_ids' => wp_json_encode( $ids ) ),
 			array( 'id' => $group_id )
 		);
 	}
@@ -203,7 +203,7 @@ class WPNT_Session_Group {
 
 		$indexed = array();
 		foreach ( $rows as $row ) {
-			$indexed[ (int) $row->sailor_id ] = $row;
+			$indexed[ (int) $row->athlete_id ] = $row;
 		}
 		return $indexed;
 	}
@@ -211,8 +211,7 @@ class WPNT_Session_Group {
 	public static function save_group_attendance( int $session_id, int $group_id, array $records ): array {
 		$results = array();
 		foreach ( $records as $record ) {
-			// Accept both legacy 'sailor_id' key (from old JS) and new 'athlete_id'.
-			$athlete_id = absint( $record['athlete_id'] ?? $record['sailor_id'] ?? 0 );
+			$athlete_id = absint( $record['athlete_id'] ?? 0 );
 			$status     = sanitize_text_field( $record['status'] ?? '' );
 			$notes      = sanitize_textarea_field( $record['notes'] ?? '' );
 			if ( ! $athlete_id || ! $status ) {
@@ -228,7 +227,7 @@ class WPNT_Session_Group {
 		$table = $wpdb->prefix . 'wpnt_attendance';
 
 		$existing = $wpdb->get_var( $wpdb->prepare(
-			"SELECT id FROM {$table} WHERE session_id = %d AND sailor_id = %d AND session_group_id = %d",
+			"SELECT id FROM {$table} WHERE session_id = %d AND athlete_id = %d AND session_group_id = %d",
 			$session_id, $athlete_id, $group_id
 		) );
 
@@ -244,7 +243,7 @@ class WPNT_Session_Group {
 		}
 
 		$data['session_id'] = $session_id;
-		$data['sailor_id']  = $athlete_id;
+		$data['athlete_id'] = $athlete_id;
 		return (bool) $wpdb->insert( $table, $data );
 	}
 

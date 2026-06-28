@@ -17,7 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 define( 'WPNT_VERSION', '0.2.0' );
 define( 'WPNT_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WPNT_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
-define( 'WPNT_DB_VERSION', '3' );
+define( 'WPNT_DB_VERSION', '4' );
 
 require_once WPNT_PLUGIN_DIR . 'includes/class-wpnt-pack.php';
 require_once WPNT_PLUGIN_DIR . 'includes/class-wpnt-activator.php';

@@ -348,7 +348,7 @@ class WPNT_REST_API {
 
 		// Update progress for each skill checked per athlete.
 		foreach ( $records as $record ) {
-			$athlete_id = absint( $record['sailor_id'] ?? $record['athlete_id'] ?? 0 );
+			$athlete_id = absint( $record['athlete_id'] ?? 0 );
 			$skills     = array_filter( array_map( 'absint', (array) ( $record['skills'] ?? array() ) ) );
 			if ( $athlete_id && $skills ) {
 				foreach ( $skills as $skill_id ) {

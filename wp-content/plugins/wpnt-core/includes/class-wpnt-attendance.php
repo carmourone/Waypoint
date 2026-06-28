@@ -16,7 +16,7 @@ class WPNT_Attendance {
 	public static function bulk_mark( int $session_id, array $records ): array {
 		$results = array();
 		foreach ( $records as $record ) {
-			$athlete_id = absint( $record['athlete_id'] ?? $record['sailor_id'] ?? 0 );
+			$athlete_id = absint( $record['athlete_id'] ?? 0 );
 			$status     = sanitize_text_field( $record['status'] ?? '' );
 			$notes      = sanitize_textarea_field( $record['notes'] ?? '' );
 			if ( ! $athlete_id || ! $status ) {
@@ -41,7 +41,7 @@ class WPNT_Attendance {
 		$attendance = WPNT_DB::get_session_attendance( $session_id );
 		$att_by_athlete = array();
 		foreach ( $attendance as $row ) {
-			$att_by_athlete[ (int) $row->sailor_id ] = $row;
+			$att_by_athlete[ (int) $row->athlete_id ] = $row;
 		}
 
 		$participants_lbl = WPNT_Pack::get_active_label( 'participant_label_plural', __( 'Athletes', 'wpnt' ) );
