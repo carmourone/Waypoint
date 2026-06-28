@@ -9,20 +9,21 @@ class WPNT_Roles {
 	private static array $cpt_caps = array(
 		'wpnt_curriculum', 'wpnt_node', 'wpnt_skill', 'wpnt_drill',
 		'wpnt_session_tmpl', 'wpnt_course', 'wpnt_session', 'wpnt_training_plan',
+		'wpnt_observation',
 	);
 
 	public static function add_roles(): void {
-		self::add_club_admin();
+		self::add_org_admin();
 		self::add_coach();
 		self::add_assistant_coach();
 		self::add_parent();
-		self::add_sailor();
+		self::add_athlete();
 		self::extend_administrator();
 	}
 
-	private static function add_club_admin(): void {
-		remove_role( 'wpnt_club_admin' );
-		add_role( 'wpnt_club_admin', __( 'Club Admin', 'wpnt' ), self::build_caps( array(
+	private static function add_org_admin(): void {
+		remove_role( 'wpnt_org_admin' );
+		add_role( 'wpnt_org_admin', __( 'Org Admin', 'wpnt' ), self::build_caps( array(
 			'manage' => self::$cpt_caps,
 			'view'   => self::$cpt_caps,
 		) ) );
@@ -53,11 +54,11 @@ class WPNT_Roles {
 		) );
 	}
 
-	private static function add_sailor(): void {
-		remove_role( 'wpnt_sailor' );
-		add_role( 'wpnt_sailor', __( 'Sailor', 'wpnt' ), array(
-			'read'                  => true,
-			'wpnt_view_own_data'    => true,
+	private static function add_athlete(): void {
+		remove_role( 'wpnt_athlete' );
+		add_role( 'wpnt_athlete', __( 'Athlete', 'wpnt' ), array(
+			'read'               => true,
+			'wpnt_view_own_data' => true,
 		) );
 	}
 

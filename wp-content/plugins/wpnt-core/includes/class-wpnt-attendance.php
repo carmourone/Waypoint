@@ -5,24 +5,24 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class WPNT_Attendance {
 
-	public static function mark( int $session_id, int $sailor_id, string $status, string $notes = '' ): bool {
+	public static function mark( int $session_id, int $athlete_id, string $status, string $notes = '' ): bool {
 		$allowed = array( 'attended', 'absent', 'partial', 'excused', 'late', 'left_early' );
 		if ( ! in_array( $status, $allowed, true ) ) {
 			return false;
 		}
-		return WPNT_DB::upsert_attendance( $session_id, $sailor_id, $status, $notes );
+		return WPNT_DB::upsert_attendance( $session_id, $athlete_id, $status, $notes );
 	}
 
 	public static function bulk_mark( int $session_id, array $records ): array {
 		$results = array();
 		foreach ( $records as $record ) {
-			$sailor_id = absint( $record['sailor_id'] ?? 0 );
-			$status    = sanitize_text_field( $record['status'] ?? '' );
-			$notes     = sanitize_textarea_field( $record['notes'] ?? '' );
-			if ( ! $sailor_id || ! $status ) {
+			$athlete_id = absint( $record['athlete_id'] ?? 0 );
+			$status     = sanitize_text_field( $record['status'] ?? '' );
+			$notes      = sanitize_textarea_field( $record['notes'] ?? '' );
+			if ( ! $athlete_id || ! $status ) {
 				continue;
 			}
-			$results[ $sailor_id ] = self::mark( $session_id, $sailor_id, $status, $notes );
+			$results[ $athlete_id ] = self::mark( $session_id, $athlete_id, $status, $notes );
 		}
 		return $results;
 	}
@@ -37,16 +37,19 @@ class WPNT_Attendance {
 			return '<p>' . esc_html__( 'No course linked to this session.', 'wpnt' ) . '</p>';
 		}
 
-		$sailors    = WPNT_Course::get_enrolled_sailors( $course_id );
+		$athletes   = WPNT_Course::get_enrolled_athletes( $course_id );
 		$attendance = WPNT_DB::get_session_attendance( $session_id );
-		$att_by_sailor = array();
+		$att_by_athlete = array();
 		foreach ( $attendance as $row ) {
-			$att_by_sailor[ (int) $row->sailor_id ] = $row;
+			$att_by_athlete[ (int) $row->athlete_id ] = $row;
 		}
 
-		if ( empty( $sailors ) ) {
-			return '<p>' . esc_html__( 'No sailors enrolled in this course.', 'wpnt' ) . '</p>';
+		$participants_lbl = WPNT_Pack::get_active_label( 'participant_label_plural', __( 'Athletes', 'wpnt' ) );
+		if ( empty( $athletes ) ) {
+			return '<p>' . esc_html( sprintf( __( 'No %s enrolled in this course.', 'wpnt' ), strtolower( $participants_lbl ) ) ) . '</p>';
 		}
+
+		$participant_lbl = WPNT_Pack::get_active_label( 'participant_label', __( 'Athlete', 'wpnt' ) );
 
 		$statuses = array(
 			'attended'   => __( 'Attended', 'wpnt' ),
@@ -62,21 +65,21 @@ class WPNT_Attendance {
 		<table class="wpnt-attendance-table widefat" data-session-id="<?php echo esc_attr( $session_id ); ?>">
 			<thead>
 				<tr>
-					<th><?php esc_html_e( 'Sailor', 'wpnt' ); ?></th>
+					<th><?php echo esc_html( $participant_lbl ); ?></th>
 					<th><?php esc_html_e( 'Status', 'wpnt' ); ?></th>
 					<th><?php esc_html_e( 'Notes', 'wpnt' ); ?></th>
 				</tr>
 			</thead>
 			<tbody>
-			<?php foreach ( $sailors as $sailor ) :
-				$att    = $att_by_sailor[ $sailor->ID ] ?? null;
+			<?php foreach ( $athletes as $athlete ) :
+				$att    = $att_by_athlete[ $athlete->ID ] ?? null;
 				$status = $att ? $att->status : '';
 				$notes  = $att ? $att->notes : '';
 			?>
-				<tr class="wpnt-att-row" data-sailor-id="<?php echo esc_attr( $sailor->ID ); ?>">
-					<td><?php echo esc_html( $sailor->display_name ); ?></td>
+				<tr class="wpnt-att-row" data-athlete-id="<?php echo esc_attr( $athlete->ID ); ?>">
+					<td><?php echo esc_html( $athlete->display_name ); ?></td>
 					<td>
-						<select class="wpnt-att-status" data-sailor-id="<?php echo esc_attr( $sailor->ID ); ?>">
+						<select class="wpnt-att-status" data-athlete-id="<?php echo esc_attr( $athlete->ID ); ?>">
 							<option value=""><?php esc_html_e( '— Mark —', 'wpnt' ); ?></option>
 							<?php foreach ( $statuses as $val => $label ) : ?>
 								<option value="<?php echo esc_attr( $val ); ?>"<?php selected( $status, $val ); ?>><?php echo esc_html( $label ); ?></option>

@@ -34,7 +34,7 @@ $children = $child_ids ? get_users( array( 'include' => $child_ids ) ) : array()
 
 		<?php if ( empty( $children ) ) : ?>
 			<div class="notice-wp info">
-				<?php esc_html_e( 'No children are linked to your account yet. Please contact your club administrator.', 'waypoint' ); ?>
+				<?php esc_html_e( 'No children are linked to your account yet. Please contact your organisation administrator.', 'waypoint' ); ?>
 			</div>
 		<?php endif; ?>
 
@@ -64,7 +64,7 @@ $children = $child_ids ? get_users( array( 'include' => $child_ids ) ) : array()
 				'order'    => 'ASC',
 			) ) : array();
 
-			$att_history = WPNT_DB::get_sailor_attendance( $child->ID );
+			$att_history = WPNT_DB::get_athlete_attendance( $child->ID );
 			$att_counts  = array_count_values( array_column( $att_history, 'status' ) );
 			$total       = count( $att_history );
 			$attended    = $att_counts['attended'] ?? 0;
@@ -73,7 +73,7 @@ $children = $child_ids ? get_users( array( 'include' => $child_ids ) ) : array()
 				'post_type'      => 'wpnt_training_plan',
 				'posts_per_page' => 5,
 				'meta_query'     => array(
-					array( 'key' => '_wpnt_sailor_id', 'value' => $child->ID ),
+					array( 'key' => '_wpnt_athlete_id', 'value' => $child->ID ),
 					array( 'key' => '_wpnt_status', 'value' => array( 'approved', 'active' ), 'compare' => 'IN' ),
 				),
 			) );

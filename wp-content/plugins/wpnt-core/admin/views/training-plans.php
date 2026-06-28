@@ -46,7 +46,7 @@ $status_options = array(
 			<thead>
 				<tr>
 					<th><?php esc_html_e( 'Title', 'wpnt' ); ?></th>
-					<th><?php esc_html_e( 'Sailor', 'wpnt' ); ?></th>
+					<th><?php echo esc_html( WPNT_Pack::get_active_label( 'participant_label', __( 'Athlete', 'wpnt' ) ) ); ?></th>
 					<th><?php esc_html_e( 'Origin', 'wpnt' ); ?></th>
 					<th><?php esc_html_e( 'Scope', 'wpnt' ); ?></th>
 					<th><?php esc_html_e( 'Target Date', 'wpnt' ); ?></th>
@@ -55,17 +55,17 @@ $status_options = array(
 			</thead>
 			<tbody>
 				<?php foreach ( $plans as $plan ) :
-					$sailor_id  = (int) get_post_meta( $plan->ID, '_wpnt_sailor_id', true );
+					$athlete_id = (int) get_post_meta( $plan->ID, '_wpnt_athlete_id', true );
 					$coach_id   = (int) get_post_meta( $plan->ID, '_wpnt_assigned_coach', true );
 					$origin     = get_post_meta( $plan->ID, '_wpnt_origin', true );
 					$scope      = get_post_meta( $plan->ID, '_wpnt_scope', true );
 					$target     = get_post_meta( $plan->ID, '_wpnt_target_date', true );
-					$sailor     = $sailor_id ? get_user_by( 'id', $sailor_id ) : null;
+					$athlete    = $athlete_id ? get_user_by( 'id', $athlete_id ) : null;
 					$coach      = $coach_id ? get_user_by( 'id', $coach_id ) : null;
 				?>
 					<tr>
 						<td><a href="<?php echo esc_url( get_edit_post_link( $plan->ID ) ); ?>"><?php echo esc_html( $plan->post_title ); ?></a></td>
-						<td><?php echo $sailor ? esc_html( $sailor->display_name ) : '—'; ?></td>
+						<td><?php echo $athlete ? esc_html( $athlete->display_name ) : '—'; ?></td>
 						<td><?php echo $origin ? esc_html( ucwords( str_replace( '_', ' ', $origin ) ) ) : '—'; ?></td>
 						<td><?php echo $scope ? esc_html( ucwords( str_replace( '_', ' ', $scope ) ) ) : '—'; ?></td>
 						<td><?php echo $target ? esc_html( date_i18n( get_option( 'date_format' ), strtotime( $target ) ) ) : '—'; ?></td>

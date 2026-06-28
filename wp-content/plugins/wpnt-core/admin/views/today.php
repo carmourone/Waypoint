@@ -79,7 +79,8 @@ $active_session    = $requested_session ?: ( ! empty( $today_sessions ) ? $today
 
 						<h3><?php esc_html_e( 'Add Observation', 'wpnt' ); ?></h3>
 						<div class="wpnt-obs-form">
-							<input type="text" id="wpnt-obs-sailor" placeholder="<?php esc_attr_e( 'Sailor name or leave blank for group…', 'wpnt' ); ?>" class="regular-text">
+							<?php $obs_placeholder = sprintf( __( '%s name or leave blank for group…', 'wpnt' ), WPNT_Pack::get_active_label( 'participant_label', __( 'Athlete', 'wpnt' ) ) ); ?>
+							<input type="text" id="wpnt-obs-athlete" placeholder="<?php echo esc_attr( $obs_placeholder ); ?>" class="regular-text">
 							<textarea id="wpnt-obs-note" rows="3" class="large-text" placeholder="<?php esc_attr_e( 'Observation note…', 'wpnt' ); ?>"></textarea>
 							<select id="wpnt-obs-confidence">
 								<option value=""><?php esc_html_e( 'Confidence level (optional)', 'wpnt' ); ?></option>

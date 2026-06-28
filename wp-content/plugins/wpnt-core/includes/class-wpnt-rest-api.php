@@ -48,10 +48,10 @@ class WPNT_REST_API {
 			'permission_callback' => array( __CLASS__, 'can_add_observation' ),
 		) );
 
-		register_rest_route( $ns, '/progress/sailor/(?P<sailor_id>\d+)', array(
+		register_rest_route( $ns, '/progress/athlete/(?P<athlete_id>\d+)', array(
 			'methods'             => 'GET',
-			'callback'            => array( __CLASS__, 'get_sailor_progress' ),
-			'permission_callback' => array( __CLASS__, 'can_view_sailor' ),
+			'callback'            => array( __CLASS__, 'get_athlete_progress' ),
+			'permission_callback' => array( __CLASS__, 'can_view_athlete' ),
 		) );
 
 		// Sessions — today and upcoming
@@ -77,7 +77,7 @@ class WPNT_REST_API {
 		// Enrolment
 		register_rest_route( $ns, '/course/(?P<course_id>\d+)/enroll', array(
 			'methods'             => 'POST',
-			'callback'            => array( __CLASS__, 'enroll_sailor' ),
+			'callback'            => array( __CLASS__, 'enroll_athlete' ),
 			'permission_callback' => array( __CLASS__, 'can_manage_courses' ),
 		) );
 
@@ -114,15 +114,15 @@ class WPNT_REST_API {
 			'permission_callback' => array( __CLASS__, 'can_mark_attendance' ),
 		) );
 
-		register_rest_route( $ns, '/session-groups/(?P<group_id>\d+)/add-sailor', array(
+		register_rest_route( $ns, '/session-groups/(?P<group_id>\d+)/add-athlete', array(
 			'methods'             => 'POST',
-			'callback'            => array( __CLASS__, 'add_sailor_to_group' ),
+			'callback'            => array( __CLASS__, 'add_athlete_to_group' ),
 			'permission_callback' => array( __CLASS__, 'can_mark_attendance' ),
 		) );
 
-		register_rest_route( $ns, '/session-groups/(?P<group_id>\d+)/sailors/(?P<sailor_id>\d+)', array(
+		register_rest_route( $ns, '/session-groups/(?P<group_id>\d+)/athletes/(?P<athlete_id>\d+)', array(
 			'methods'             => 'DELETE',
-			'callback'            => array( __CLASS__, 'remove_sailor_from_group' ),
+			'callback'            => array( __CLASS__, 'remove_athlete_from_group' ),
 			'permission_callback' => array( __CLASS__, 'can_mark_attendance' ),
 		) );
 	}
@@ -157,54 +157,110 @@ class WPNT_REST_API {
 	}
 
 	public static function save_observation( WP_REST_Request $request ): WP_REST_Response {
-		$args = array(
-			'session_id'      => absint( $request->get_param( 'session_id' ) ),
-			'sailor_id'       => absint( $request->get_param( 'sailor_id' ) ),
-			'course_id'       => absint( $request->get_param( 'course_id' ) ),
-			'note'            => sanitize_textarea_field( $request->get_param( 'note' ) ?? '' ),
-			'confidence_level'=> sanitize_text_field( $request->get_param( 'confidence_level' ) ?? '' ),
-			'evidence_type'   => sanitize_text_field( $request->get_param( 'evidence_type' ) ?? '' ),
-			'linked_skills'   => $request->get_param( 'linked_skills' ),
-		);
-
-		if ( ! $args['note'] ) {
+		$note = sanitize_textarea_field( $request->get_param( 'note' ) ?? '' );
+		if ( ! $note ) {
 			return new WP_REST_Response( array( 'error' => 'note is required' ), 400 );
 		}
 
-		$id = WPNT_DB::add_observation( $args );
-		if ( ! $id ) {
+		$session_id = absint( $request->get_param( 'session_id' ) );
+		$title      = $session_id
+			? sprintf( 'Observation — %s', get_the_title( $session_id ) )
+			: sprintf( 'Observation — %s', current_time( 'Y-m-d' ) );
+
+		$post_id = wp_insert_post( array(
+			'post_type'    => 'wpnt_observation',
+			'post_title'   => $title,
+			'post_content' => $note,
+			'post_status'  => 'draft',
+			'post_author'  => get_current_user_id(),
+		) );
+
+		if ( is_wp_error( $post_id ) || ! $post_id ) {
 			return new WP_REST_Response( array( 'error' => 'Failed to save observation' ), 500 );
 		}
 
-		return new WP_REST_Response( array( 'id' => $id ), 201 );
+		if ( $session_id ) {
+			update_post_meta( $post_id, '_wpnt_session_id', $session_id );
+		}
+		$athlete_id = absint( $request->get_param( 'athlete_id' ) );
+		if ( $athlete_id ) {
+			update_post_meta( $post_id, '_wpnt_athlete_id', $athlete_id );
+		}
+		$course_id = absint( $request->get_param( 'course_id' ) );
+		if ( $course_id ) {
+			update_post_meta( $post_id, '_wpnt_course_id', $course_id );
+		}
+
+		$confidence = sanitize_text_field( $request->get_param( 'confidence_level' ) ?? '' );
+		if ( $confidence ) {
+			update_post_meta( $post_id, '_wpnt_confidence_level', $confidence );
+		}
+		$evidence_type = sanitize_text_field( $request->get_param( 'evidence_type' ) ?? '' );
+		if ( $evidence_type ) {
+			update_post_meta( $post_id, '_wpnt_evidence_type', $evidence_type );
+		}
+		$linked_skills = $request->get_param( 'linked_skills' );
+		if ( $linked_skills ) {
+			update_post_meta( $post_id, '_wpnt_linked_skills', wp_json_encode( array_map( 'absint', (array) $linked_skills ) ) );
+		}
+
+		return new WP_REST_Response( array( 'id' => $post_id ), 201 );
 	}
 
 	public static function get_session_observations( WP_REST_Request $request ): WP_REST_Response {
-		$session_id = (int) $request['session_id'];
-		return new WP_REST_Response( WPNT_DB::get_session_observations( $session_id ), 200 );
+		$session_id  = (int) $request['session_id'];
+		$post_status = current_user_can( 'edit_wpnt_observations' ) ? array( 'publish', 'draft' ) : array( 'publish' );
+
+		$posts = get_posts( array(
+			'post_type'      => 'wpnt_observation',
+			'post_status'    => $post_status,
+			'posts_per_page' => -1,
+			'meta_key'       => '_wpnt_session_id',
+			'meta_value'     => $session_id,
+			'orderby'        => 'date',
+			'order'          => 'DESC',
+		) );
+
+		$data = array_map( function( WP_Post $p ) {
+			return array(
+				'id'               => $p->ID,
+				'note'             => $p->post_content,
+				'status'           => $p->post_status,
+				'date'             => $p->post_date,
+				'author_id'        => (int) $p->post_author,
+				'session_id'       => (int) get_post_meta( $p->ID, '_wpnt_session_id', true ),
+				'athlete_id'       => (int) get_post_meta( $p->ID, '_wpnt_athlete_id', true ),
+				'course_id'        => (int) get_post_meta( $p->ID, '_wpnt_course_id', true ),
+				'confidence_level' => get_post_meta( $p->ID, '_wpnt_confidence_level', true ),
+				'evidence_type'    => get_post_meta( $p->ID, '_wpnt_evidence_type', true ),
+				'linked_skills'    => json_decode( get_post_meta( $p->ID, '_wpnt_linked_skills', true ) ?? '[]', true ),
+			);
+		}, $posts );
+
+		return new WP_REST_Response( $data, 200 );
 	}
 
 	public static function save_progress( WP_REST_Request $request ): WP_REST_Response {
-		$sailor_id = absint( $request->get_param( 'sailor_id' ) );
-		$status    = sanitize_text_field( $request->get_param( 'status' ) ?? '' );
-		$skill_id  = absint( $request->get_param( 'skill_id' ) );
-		$node_id   = absint( $request->get_param( 'curriculum_node_id' ) );
-		$evidence  = sanitize_textarea_field( $request->get_param( 'evidence' ) ?? '' );
+		$athlete_id = absint( $request->get_param( 'athlete_id' ) );
+		$status     = sanitize_text_field( $request->get_param( 'status' ) ?? '' );
+		$skill_id   = absint( $request->get_param( 'skill_id' ) );
+		$node_id    = absint( $request->get_param( 'curriculum_node_id' ) );
+		$evidence   = sanitize_textarea_field( $request->get_param( 'evidence' ) ?? '' );
 
-		if ( ! $sailor_id || ! $status ) {
-			return new WP_REST_Response( array( 'error' => 'sailor_id and status are required' ), 400 );
+		if ( ! $athlete_id || ! $status ) {
+			return new WP_REST_Response( array( 'error' => 'athlete_id and status are required' ), 400 );
 		}
 
-		$ok = WPNT_DB::upsert_progress( $sailor_id, $status, $skill_id, $node_id, $evidence );
+		$ok = WPNT_DB::upsert_progress( $athlete_id, $status, $skill_id, $node_id, $evidence );
 		return new WP_REST_Response( array( 'saved' => $ok ), $ok ? 200 : 500 );
 	}
 
-	public static function get_sailor_progress( WP_REST_Request $request ): WP_REST_Response {
-		$sailor_id = (int) $request['sailor_id'];
-		if ( ! self::can_view_sailor_id( $sailor_id ) ) {
+	public static function get_athlete_progress( WP_REST_Request $request ): WP_REST_Response {
+		$athlete_id = (int) $request['athlete_id'];
+		if ( ! self::can_view_athlete_id( $athlete_id ) ) {
 			return new WP_REST_Response( array( 'error' => 'Forbidden' ), 403 );
 		}
-		return new WP_REST_Response( WPNT_DB::get_sailor_progress( $sailor_id ), 200 );
+		return new WP_REST_Response( WPNT_DB::get_athlete_progress( $athlete_id ), 200 );
 	}
 
 	public static function get_todays_sessions( WP_REST_Request $request ): WP_REST_Response {
@@ -225,13 +281,13 @@ class WPNT_REST_API {
 		return new WP_REST_Response( array( 'created' => $count ), 200 );
 	}
 
-	public static function enroll_sailor( WP_REST_Request $request ): WP_REST_Response {
-		$course_id = (int) $request['course_id'];
-		$sailor_id = absint( $request->get_param( 'sailor_id' ) );
-		if ( ! $sailor_id ) {
-			return new WP_REST_Response( array( 'error' => 'sailor_id required' ), 400 );
+	public static function enroll_athlete( WP_REST_Request $request ): WP_REST_Response {
+		$course_id  = (int) $request['course_id'];
+		$athlete_id = absint( $request->get_param( 'athlete_id' ) );
+		if ( ! $athlete_id ) {
+			return new WP_REST_Response( array( 'error' => 'athlete_id required' ), 400 );
 		}
-		$ok = WPNT_Course::enroll_sailor( $course_id, $sailor_id );
+		$ok = WPNT_Course::enroll_athlete( $course_id, $athlete_id );
 		return new WP_REST_Response( array( 'enrolled' => $ok ), $ok ? 200 : 500 );
 	}
 
@@ -290,13 +346,13 @@ class WPNT_REST_API {
 
 		$results = WPNT_Session_Group::save_group_attendance( $session_id, $group_id, $records );
 
-		// Update progress for each skill checked per sailor.
+		// Update progress for each skill checked per athlete.
 		foreach ( $records as $record ) {
-			$sailor_id = absint( $record['sailor_id'] ?? 0 );
-			$skills    = array_filter( array_map( 'absint', (array) ( $record['skills'] ?? array() ) ) );
-			if ( $sailor_id && $skills ) {
+			$athlete_id = absint( $record['athlete_id'] ?? 0 );
+			$skills     = array_filter( array_map( 'absint', (array) ( $record['skills'] ?? array() ) ) );
+			if ( $athlete_id && $skills ) {
 				foreach ( $skills as $skill_id ) {
-					WPNT_DB::upsert_progress( $sailor_id, 'practising', $skill_id );
+					WPNT_DB::upsert_progress( $athlete_id, 'practising', $skill_id );
 				}
 			}
 		}
@@ -312,23 +368,23 @@ class WPNT_REST_API {
 		return new WP_REST_Response( array( 'saved' => $results ), 200 );
 	}
 
-	public static function add_sailor_to_group( WP_REST_Request $request ): WP_REST_Response {
-		$group_id  = (int) $request['group_id'];
-		$sailor_id = absint( $request->get_param( 'sailor_id' ) );
-		$enroll    = (bool) $request->get_param( 'enroll_in_course' );
+	public static function add_athlete_to_group( WP_REST_Request $request ): WP_REST_Response {
+		$group_id   = (int) $request['group_id'];
+		$athlete_id = absint( $request->get_param( 'athlete_id' ) );
+		$enroll     = (bool) $request->get_param( 'enroll_in_course' );
 
-		if ( ! $sailor_id ) {
-			return new WP_REST_Response( array( 'error' => 'sailor_id required' ), 400 );
+		if ( ! $athlete_id ) {
+			return new WP_REST_Response( array( 'error' => 'athlete_id required' ), 400 );
 		}
 
-		$ok = WPNT_Session_Group::add_adhoc_sailor( $group_id, $sailor_id, $enroll );
+		$ok = WPNT_Session_Group::add_adhoc_athlete( $group_id, $athlete_id, $enroll );
 		return new WP_REST_Response( array( 'added' => $ok ), $ok ? 200 : 500 );
 	}
 
-	public static function remove_sailor_from_group( WP_REST_Request $request ): WP_REST_Response {
-		$group_id  = (int) $request['group_id'];
-		$sailor_id = (int) $request['sailor_id'];
-		$ok        = WPNT_Session_Group::remove_adhoc_sailor( $group_id, $sailor_id );
+	public static function remove_athlete_from_group( WP_REST_Request $request ): WP_REST_Response {
+		$group_id   = (int) $request['group_id'];
+		$athlete_id = (int) $request['athlete_id'];
+		$ok         = WPNT_Session_Group::remove_adhoc_athlete( $group_id, $athlete_id );
 		return new WP_REST_Response( array( 'removed' => $ok ), $ok ? 200 : 500 );
 	}
 
@@ -345,7 +401,7 @@ class WPNT_REST_API {
 	}
 
 	public static function can_add_observation(): bool {
-		return current_user_can( 'edit_wpnt_sessions' ) || current_user_can( 'manage_options' );
+		return current_user_can( 'edit_wpnt_observations' ) || current_user_can( 'manage_options' );
 	}
 
 	public static function can_view_sessions(): bool {
@@ -356,17 +412,16 @@ class WPNT_REST_API {
 		return current_user_can( 'edit_wpnt_courses' ) || current_user_can( 'manage_options' );
 	}
 
-	public static function can_view_sailor(): bool {
+	public static function can_view_athlete(): bool {
 		return is_user_logged_in();
 	}
 
-	private static function can_view_sailor_id( int $sailor_id ): bool {
+	private static function can_view_athlete_id( int $athlete_id ): bool {
 		$user_id = get_current_user_id();
 		if ( current_user_can( 'manage_options' ) || current_user_can( 'read_private_wpnt_sessions' ) ) {
 			return true;
 		}
-		// A sailor can see their own data.
-		return $user_id === $sailor_id;
+		return $user_id === $athlete_id;
 	}
 
 	// -------------------------------------------------------------------------

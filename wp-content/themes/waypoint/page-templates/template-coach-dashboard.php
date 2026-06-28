@@ -122,14 +122,14 @@ $open_plans     = waypoint_plugin_active() ? get_posts( array(
 			<div class="dashboard-section">
 				<h2 class="dashboard-section-title"><?php esc_html_e( 'Open Training Plans', 'waypoint' ); ?></h2>
 				<?php foreach ( $open_plans as $plan ) :
-					$sailor_id = (int) get_post_meta( $plan->ID, '_wpnt_sailor_id', true );
-					$sailor    = $sailor_id ? get_user_by( 'id', $sailor_id ) : null;
-					$scope     = get_post_meta( $plan->ID, '_wpnt_scope', true );
+					$athlete_id = (int) get_post_meta( $plan->ID, '_wpnt_athlete_id', true );
+					$athlete    = $athlete_id ? get_user_by( 'id', $athlete_id ) : null;
+					$scope      = get_post_meta( $plan->ID, '_wpnt_scope', true );
 				?>
 					<div class="training-plan-item">
 						<h4><a href="<?php echo esc_url( get_permalink( $plan->ID ) ); ?>"><?php echo esc_html( $plan->post_title ); ?></a></h4>
 						<p class="tp-meta">
-							<?php if ( $sailor ) : ?><?php echo esc_html( $sailor->display_name ); ?><?php endif; ?>
+							<?php if ( $athlete ) : ?><?php echo esc_html( $athlete->display_name ); ?><?php endif; ?>
 							<?php if ( $scope ) : ?> &bull; <?php echo esc_html( ucwords( str_replace( '_', ' ', $scope ) ) ); ?><?php endif; ?>
 						</p>
 					</div>

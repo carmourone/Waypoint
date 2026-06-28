@@ -14,7 +14,8 @@
 	$day_time   = get_post_meta( $course_id, '_wpnt_default_day_time', true );
 	$status     = get_post_meta( $course_id, '_wpnt_status', true );
 	$sessions   = WPNT_Course::get_course_sessions( $course_id );
-	$sailors    = WPNT_Course::get_enrolled_sailors( $course_id );
+	$athletes        = WPNT_Course::get_enrolled_athletes( $course_id );
+	$participants_lbl = class_exists( 'WPNT_Pack' ) ? WPNT_Pack::get_active_label( 'participant_label_plural', __( 'Athletes', 'waypoint' ) ) : __( 'Athletes', 'waypoint' );
 	$node       = $node_id ? get_post( $node_id ) : null;
 ?>
 
@@ -73,15 +74,15 @@
 			</div>
 
 			<aside>
-				<!-- Enrolled sailors -->
+				<!-- Enrolled athletes -->
 				<div class="card mb-3">
-					<h3 class="card-title"><?php printf( esc_html__( 'Sailors (%d)', 'waypoint' ), count( $sailors ) ); ?></h3>
-					<?php if ( empty( $sailors ) ) : ?>
-						<p><?php esc_html_e( 'No sailors enrolled yet.', 'waypoint' ); ?></p>
+					<h3 class="card-title"><?php printf( esc_html__( '%s (%d)', 'waypoint' ), esc_html( $participants_lbl ), count( $athletes ) ); ?></h3>
+					<?php if ( empty( $athletes ) ) : ?>
+						<p><?php echo esc_html( sprintf( __( 'No %s enrolled yet.', 'waypoint' ), strtolower( $participants_lbl ) ) ); ?></p>
 					<?php else : ?>
 						<ul class="att-summary-bar" style="flex-direction:column;gap:.25rem">
-							<?php foreach ( $sailors as $sailor ) : ?>
-								<li><?php echo esc_html( $sailor->display_name ); ?></li>
+							<?php foreach ( $athletes as $athlete ) : ?>
+								<li><?php echo esc_html( $athlete->display_name ); ?></li>
 							<?php endforeach; ?>
 						</ul>
 					<?php endif; ?>

@@ -55,7 +55,7 @@
 					switch ( $role ) {
 						case 'wpnt_coach':
 						case 'administrator':
-						case 'wpnt_club_admin':
+						case 'wpnt_org_admin':
 							$dash_url = get_permalink( get_page_by_path( 'coach-dashboard' ) );
 							break;
 						case 'wpnt_parent':

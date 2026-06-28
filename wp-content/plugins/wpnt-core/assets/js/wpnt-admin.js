@@ -26,11 +26,11 @@
     const records = [];
 
     $('.wpnt-att-row').each(function () {
-      const sailorId = $(this).data('sailor-id');
+      const athleteId = $(this).data('athlete-id');
       const status = $(this).find('.wpnt-att-status').val();
       const notes = $(this).find('.wpnt-att-notes').val();
       if (status) {
-        records.push({ sailor_id: sailorId, status: status, notes: notes });
+        records.push({ athlete_id: athleteId, status: status, notes: notes });
       }
     });
 
@@ -94,6 +94,7 @@
     const sessionId = $btn.data('session-id');
     const note = $('#wpnt-obs-note').val().trim();
     const confidence = $('#wpnt-obs-confidence').val();
+    const athleteName = $('#wpnt-obs-athlete').val().trim();
 
     if (!note) {
       alert('Please enter an observation note.');
@@ -106,10 +107,12 @@
       session_id: sessionId,
       note: note,
       confidence_level: confidence,
+      athlete_name: athleteName,
     })
       .done(function () {
         $('#wpnt-obs-note').val('');
         $('#wpnt-obs-confidence').val('');
+        $('#wpnt-obs-athlete').val('');
         $btn.prop('disabled', false).text('Add Observation');
 
         const $list = $('#wpnt-obs-list');
@@ -176,7 +179,7 @@
 
     $block.find('.wpnt-group-att-row').each(function () {
       const $row = $(this);
-      const sailorId = $row.data('sailor-id');
+      const athleteId = $row.data('athlete-id');
       const status = $row.find('.wpnt-att-status-select').val();
       const notes = $row.find('.wpnt-att-notes-input').val();
       const skills = [];
@@ -185,7 +188,7 @@
         skills.push(parseInt($(this).data('skill-id'), 10));
       });
 
-      records.push({ sailor_id: sailorId, status: status || 'attended', notes: notes || '', skills: skills });
+      records.push({ athlete_id: athleteId, status: status || 'attended', notes: notes || '', skills: skills });
     });
 
     $btn.prop('disabled', true).text(wpntAdmin.l10n.saving);
@@ -207,11 +210,11 @@
   });
 
   // -------------------------------------------------------------------
-  // Session Groups — sailor search typeahead filter
+  // Session Groups — athlete search typeahead filter
   // -------------------------------------------------------------------
-  $(document).on('input', '.wpnt-sailor-search', function () {
+  $(document).on('input', '.wpnt-athlete-search', function () {
     const val = $(this).val().trim().toLowerCase();
-    const $select = $(this).siblings('.wpnt-sailor-select');
+    const $select = $(this).siblings('.wpnt-athlete-select');
 
     if (val.length >= 2) {
       $select.show().find('option').each(function () {
@@ -223,24 +226,24 @@
   });
 
   // -------------------------------------------------------------------
-  // Session Groups — add ad-hoc sailor
+  // Session Groups — add ad-hoc athlete
   // -------------------------------------------------------------------
-  $(document).on('click', '.wpnt-add-sailor-btn', function () {
+  $(document).on('click', '.wpnt-add-athlete-btn', function () {
     const $btn = $(this);
     const groupId = $btn.data('group-id');
-    const $row = $btn.closest('.wpnt-add-sailor-row');
-    const sailorId = $row.find('.wpnt-sailor-select').val();
+    const $row = $btn.closest('.wpnt-add-athlete-row');
+    const athleteId = $row.find('.wpnt-athlete-select').val();
     const enroll = $row.find('.wpnt-enroll-in-course').is(':checked');
 
-    if (!sailorId) {
-      alert('Select a sailor first.');
+    if (!athleteId) {
+      alert(wpntAdmin.l10n.confirm);
       return;
     }
 
     $btn.prop('disabled', true);
 
-    apiFetch('session-groups/' + groupId + '/add-sailor', 'POST', {
-      sailor_id: parseInt(sailorId, 10),
+    apiFetch('session-groups/' + groupId + '/add-athlete', 'POST', {
+      athlete_id: parseInt(athleteId, 10),
       enroll_in_course: enroll,
     })
       .done(function () { location.reload(); })
@@ -251,14 +254,14 @@
   });
 
   // -------------------------------------------------------------------
-  // Session Groups — remove ad-hoc sailor
+  // Session Groups — remove ad-hoc athlete
   // -------------------------------------------------------------------
   $(document).on('click', '.wpnt-remove-adhoc', function () {
     const $btn = $(this);
-    if (!confirm('Remove this sailor from the group?')) return;
+    if (!confirm(wpntAdmin.l10n.confirm)) return;
 
     apiFetch(
-      'session-groups/' + $btn.data('group-id') + '/sailors/' + $btn.data('sailor-id'),
+      'session-groups/' + $btn.data('group-id') + '/athletes/' + $btn.data('athlete-id'),
       'DELETE'
     )
       .done(function () { $btn.closest('tr').fadeOut(200, function () { $(this).remove(); }); })

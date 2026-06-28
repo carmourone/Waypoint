@@ -14,6 +14,7 @@ class WPNT_Post_Types {
 		self::register_course();
 		self::register_session();
 		self::register_training_plan();
+		self::register_observation();
 	}
 
 	private static function register_curriculum_pack(): void {
@@ -137,6 +138,21 @@ class WPNT_Post_Types {
 			'capability_type'     => array( 'wpnt_training_plan', 'wpnt_training_plans' ),
 			'map_meta_cap'        => true,
 			'rewrite'             => array( 'slug' => 'training-plan' ),
+		) );
+	}
+
+	private static function register_observation(): void {
+		register_post_type( 'wpnt_observation', array(
+			'label'               => __( 'Observations', 'wpnt' ),
+			'labels'              => self::labels( 'Observation', 'Observations' ),
+			'public'              => false,
+			'show_ui'             => true,
+			'show_in_menu'        => 'wpnt',
+			'show_in_rest'        => false,
+			'supports'            => array( 'title', 'editor', 'revisions' ),
+			'capability_type'     => array( 'wpnt_observation', 'wpnt_observations' ),
+			'map_meta_cap'        => true,
+			'rewrite'             => false,
 		) );
 	}
 

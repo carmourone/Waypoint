@@ -1,22 +1,23 @@
 <?php
 /**
- * Plugin Name: Waypoint Network Training (wpnt)
+ * Plugin Name: Waypoint Core (wpnt)
  * Plugin URI:  https://github.com/carmourone/waypoint
- * Description: Sailing coaching and program delivery engine for Waypoint.
- * Version:     0.1.0
+ * Description: Domain-agnostic coaching and program delivery engine. Tracks participants, sessions, skills, progress, and training plans. Domain packs extend it for specific sports.
+ * Version:     0.2.0
  * Author:      Waypoint
  * License:     GPL-2.0-or-later
  * Text Domain: wpnt
+ * Network:     true
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'WPNT_VERSION', '0.1.0' );
+define( 'WPNT_VERSION', '0.2.0' );
 define( 'WPNT_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WPNT_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
-define( 'WPNT_DB_VERSION', '2' );
+define( 'WPNT_DB_VERSION', '4' );
 
 require_once WPNT_PLUGIN_DIR . 'includes/class-wpnt-pack.php';
 require_once WPNT_PLUGIN_DIR . 'includes/class-wpnt-activator.php';
@@ -34,9 +35,13 @@ require_once WPNT_PLUGIN_DIR . 'includes/class-wpnt-buddypress.php';
 require_once WPNT_PLUGIN_DIR . 'admin/class-wpnt-admin.php';
 
 register_activation_hook( __FILE__, array( 'WPNT_Activator', 'activate' ) );
+register_deactivation_hook( __FILE__, array( 'WPNT_Activator', 'deactivate' ) );
+
+// Provision each new site on Multisite automatically.
+add_action( 'wpmu_new_blog', array( 'WPNT_Activator', 'activate_for_site' ) );
+
 add_action( 'plugins_loaded', array( 'WPNT_DB', 'maybe_upgrade' ) );
 add_action( 'plugins_loaded', function() { do_action( 'wpnt_packs_init' ); }, 20 );
-register_deactivation_hook( __FILE__, array( 'WPNT_Activator', 'deactivate' ) );
 
 add_action( 'init', array( 'WPNT_Post_Types', 'register' ) );
 add_action( 'init', array( 'WPNT_Taxonomies', 'register' ) );
@@ -56,8 +61,7 @@ function wpnt_enqueue_frontend_assets(): void {
 		|| is_page_template( array(
 			'page-templates/template-coach-dashboard.php',
 			'page-templates/template-parent-dashboard.php',
-			'page-templates/template-sailor-dashboard.php',
-			'page-templates/template-club-dashboard.php',
+			'page-templates/template-athlete-dashboard.php',
 		) )
 	) {
 		wp_enqueue_style(

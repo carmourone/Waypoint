@@ -73,7 +73,7 @@ class WPNT_Course {
 		) );
 	}
 
-	public static function get_enrolled_sailors( int $course_id ): array {
+	public static function get_enrolled_athletes( int $course_id ): array {
 		$ids = get_post_meta( $course_id, '_wpnt_enrolled_sailors', true );
 		if ( ! $ids ) {
 			return array();
@@ -88,20 +88,20 @@ class WPNT_Course {
 		) );
 	}
 
-	public static function enroll_sailor( int $course_id, int $sailor_id ): bool {
+	public static function enroll_athlete( int $course_id, int $athlete_id ): bool {
 		$current = get_post_meta( $course_id, '_wpnt_enrolled_sailors', true );
 		$ids     = $current ? array_filter( array_map( 'absint', explode( ',', $current ) ) ) : array();
-		if ( in_array( $sailor_id, $ids, true ) ) {
+		if ( in_array( $athlete_id, $ids, true ) ) {
 			return true;
 		}
-		$ids[] = $sailor_id;
+		$ids[] = $athlete_id;
 		return (bool) update_post_meta( $course_id, '_wpnt_enrolled_sailors', implode( ',', $ids ) );
 	}
 
-	public static function unenroll_sailor( int $course_id, int $sailor_id ): bool {
+	public static function unenroll_athlete( int $course_id, int $athlete_id ): bool {
 		$current = get_post_meta( $course_id, '_wpnt_enrolled_sailors', true );
 		$ids     = $current ? array_filter( array_map( 'absint', explode( ',', $current ) ) ) : array();
-		$ids     = array_values( array_diff( $ids, array( $sailor_id ) ) );
+		$ids     = array_values( array_diff( $ids, array( $athlete_id ) ) );
 		return (bool) update_post_meta( $course_id, '_wpnt_enrolled_sailors', implode( ',', $ids ) );
 	}
 
