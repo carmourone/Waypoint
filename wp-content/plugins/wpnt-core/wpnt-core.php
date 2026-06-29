@@ -17,7 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 define( 'WPNT_VERSION', '0.2.0' );
 define( 'WPNT_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WPNT_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
-define( 'WPNT_DB_VERSION', '6' );
+define( 'WPNT_DB_VERSION', '7' );
 
 require_once WPNT_PLUGIN_DIR . 'includes/class-wpnt-pack.php';
 require_once WPNT_PLUGIN_DIR . 'includes/class-wpnt-graph.php';
@@ -31,6 +31,8 @@ require_once WPNT_PLUGIN_DIR . 'includes/class-wpnt-attendance.php';
 require_once WPNT_PLUGIN_DIR . 'includes/class-wpnt-session-group.php';
 require_once WPNT_PLUGIN_DIR . 'includes/class-wpnt-course.php';
 require_once WPNT_PLUGIN_DIR . 'includes/class-wpnt-session.php';
+require_once WPNT_PLUGIN_DIR . 'includes/class-wpnt-training-plan.php';
+require_once WPNT_PLUGIN_DIR . 'includes/class-wpnt-diary.php';
 require_once WPNT_PLUGIN_DIR . 'includes/class-wpnt-rest-api.php';
 require_once WPNT_PLUGIN_DIR . 'includes/class-wpnt-buddypress.php';
 require_once WPNT_PLUGIN_DIR . 'admin/class-wpnt-admin.php';
@@ -58,7 +60,7 @@ if ( function_exists( 'buddypress' ) ) {
 }
 
 function wpnt_enqueue_frontend_assets(): void {
-	if ( is_singular( array( 'wpnt_course', 'wpnt_session', 'wpnt_training_plan' ) )
+	if ( is_singular( array( 'wpnt_course', 'wpnt_session', 'wpnt_training_plan', 'wpnt_diary_entry' ) )
 		|| is_page_template( array(
 			'page-templates/template-coach-dashboard.php',
 			'page-templates/template-parent-dashboard.php',

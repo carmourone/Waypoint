@@ -84,9 +84,11 @@ class WPNT_Graph {
 	// -------------------------------------------------------------------------
 
 	public static function seed_types(): void {
-		self::register_type( 'core', 'u2p', 'attended',      'Attendance',          'Attendance Records' );
-		self::register_type( 'core', 'u2p', 'assessed',      'Assessment',          'Assessments' );
-		self::register_type( 'core', 'g2p', 'session_group', 'Session Group',       'Session Groups' );
+		self::register_type( 'core', 'u2p', 'attended',        'Attendance',          'Attendance Records' );
+		self::register_type( 'core', 'u2p', 'assessed',        'Assessment',          'Assessments' );
+		self::register_type( 'core', 'g2p', 'session_group',   'Session Group',       'Session Groups' );
+		self::register_type( 'core', 'p2p', 'plan_session',    'Plan Session',        'Plan Sessions' );
+		self::register_type( 'core', 'p2p', 'objective_skill', 'Objective Skill',     'Objective Skills' );
 	}
 
 	// -------------------------------------------------------------------------
