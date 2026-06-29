@@ -54,6 +54,26 @@ class WPNT_REST_API {
 			'permission_callback' => array( __CLASS__, 'can_view_athlete' ),
 		) );
 
+		// Sessions — CRUD
+		register_rest_route( $ns, '/sessions', array(
+			'methods'             => 'POST',
+			'callback'            => array( __CLASS__, 'create_session' ),
+			'permission_callback' => array( __CLASS__, 'can_manage_sessions' ),
+		) );
+
+		register_rest_route( $ns, '/sessions/(?P<session_id>\d+)', array(
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( __CLASS__, 'get_session' ),
+				'permission_callback' => array( __CLASS__, 'can_view_sessions' ),
+			),
+			array(
+				'methods'             => 'PUT',
+				'callback'            => array( __CLASS__, 'update_session' ),
+				'permission_callback' => array( __CLASS__, 'can_manage_sessions' ),
+			),
+		) );
+
 		// Sessions — today and upcoming
 		register_rest_route( $ns, '/sessions/today', array(
 			'methods'             => 'GET',
@@ -538,6 +558,116 @@ class WPNT_REST_API {
 	}
 
 	// -------------------------------------------------------------------------
+	// Session CRUD handlers
+	// -------------------------------------------------------------------------
+
+	public static function create_session( WP_REST_Request $request ): WP_REST_Response {
+		$title = sanitize_text_field( $request->get_param( 'title' ) ?? '' );
+		if ( ! $title ) {
+			return new WP_REST_Response( array( 'error' => 'title is required' ), 400 );
+		}
+
+		$session_id = wp_insert_post( array(
+			'post_type'    => 'wpnt_session',
+			'post_title'   => $title,
+			'post_content' => sanitize_textarea_field( $request->get_param( 'content' ) ?? '' ),
+			'post_status'  => 'publish',
+			'post_author'  => get_current_user_id(),
+		) );
+
+		if ( is_wp_error( $session_id ) || ! $session_id ) {
+			return new WP_REST_Response( array( 'error' => 'Failed to create session' ), 500 );
+		}
+
+		$meta_map = array(
+			'status'          => '_wpnt_status',
+			'location'        => '_wpnt_location',
+			'scheduled_start' => '_wpnt_scheduled_start',
+			'scheduled_end'   => '_wpnt_scheduled_end',
+			'course_id'       => '_wpnt_course_id',
+			'wind_range'      => '_wpnts_wind_range',
+			'boat_class'      => '_wpnts_boat_class',
+		);
+		foreach ( $meta_map as $param => $key ) {
+			$val = $request->get_param( $param );
+			if ( $val !== null && $val !== '' ) {
+				update_post_meta( $session_id, $key, sanitize_text_field( (string) $val ) );
+			}
+		}
+
+		if ( ! get_post_meta( $session_id, '_wpnt_status', true ) ) {
+			update_post_meta( $session_id, '_wpnt_status', 'scheduled' );
+		}
+		update_post_meta( $session_id, '_wpnt_coach_id', get_current_user_id() );
+
+		$plan_id = absint( $request->get_param( 'plan_id' ) );
+		if ( $plan_id && class_exists( 'WPNT_Training_Plan' ) ) {
+			WPNT_Training_Plan::link_session( $plan_id, $session_id );
+		}
+
+		return new WP_REST_Response( array(
+			'id'  => $session_id,
+			'url' => get_permalink( $session_id ),
+		), 201 );
+	}
+
+	public static function get_session( WP_REST_Request $request ): WP_REST_Response {
+		$session_id = (int) $request['session_id'];
+		$post       = get_post( $session_id );
+		if ( ! $post || $post->post_type !== 'wpnt_session' ) {
+			return new WP_REST_Response( array( 'error' => 'Not found' ), 404 );
+		}
+		$data             = self::format_session( $post );
+		$data['coach_id'] = (int) get_post_meta( $session_id, '_wpnt_coach_id', true );
+		$data['content']  = $post->post_content;
+		return new WP_REST_Response( $data, 200 );
+	}
+
+	public static function update_session( WP_REST_Request $request ): WP_REST_Response {
+		$session_id = (int) $request['session_id'];
+		$post       = get_post( $session_id );
+		if ( ! $post || $post->post_type !== 'wpnt_session' ) {
+			return new WP_REST_Response( array( 'error' => 'Not found' ), 404 );
+		}
+
+		$coach_id = (int) get_post_meta( $session_id, '_wpnt_coach_id', true );
+		if ( ! current_user_can( 'manage_options' ) && ! current_user_can( 'edit_wpnt_sessions' ) && get_current_user_id() !== $coach_id ) {
+			return new WP_REST_Response( array( 'error' => 'Forbidden' ), 403 );
+		}
+
+		$post_updates = array( 'ID' => $session_id );
+		$title = $request->get_param( 'title' );
+		if ( $title !== null ) {
+			$post_updates['post_title'] = sanitize_text_field( $title );
+		}
+		$content = $request->get_param( 'content' );
+		if ( $content !== null ) {
+			$post_updates['post_content'] = sanitize_textarea_field( $content );
+		}
+		if ( count( $post_updates ) > 1 ) {
+			wp_update_post( $post_updates );
+		}
+
+		$meta_map = array(
+			'status'          => '_wpnt_status',
+			'location'        => '_wpnt_location',
+			'scheduled_start' => '_wpnt_scheduled_start',
+			'scheduled_end'   => '_wpnt_scheduled_end',
+			'course_id'       => '_wpnt_course_id',
+			'wind_range'      => '_wpnts_wind_range',
+			'boat_class'      => '_wpnts_boat_class',
+		);
+		foreach ( $meta_map as $param => $key ) {
+			$val = $request->get_param( $param );
+			if ( $val !== null ) {
+				update_post_meta( $session_id, $key, sanitize_text_field( (string) $val ) );
+			}
+		}
+
+		return new WP_REST_Response( array( 'updated' => true, 'url' => get_permalink( $session_id ) ), 200 );
+	}
+
+	// -------------------------------------------------------------------------
 	// Training plan handlers
 	// -------------------------------------------------------------------------
 
@@ -572,6 +702,7 @@ class WPNT_REST_API {
 		$plan_id = wp_insert_post( array(
 			'post_type'    => 'wpnt_training_plan',
 			'post_title'   => $title,
+			'post_content' => sanitize_textarea_field( $request->get_param( 'content' ) ?? '' ),
 			'post_status'  => 'publish',
 			'post_author'  => get_current_user_id(),
 			'post_parent'  => $parentid,
@@ -602,7 +733,7 @@ class WPNT_REST_API {
 		update_post_meta( $plan_id, '_wpnt_status', 'draft' );
 		update_post_meta( $plan_id, '_wpnt_visibility', 'shared' );
 
-		return new WP_REST_Response( array( 'id' => $plan_id ), 201 );
+		return new WP_REST_Response( array( 'id' => $plan_id, 'url' => get_permalink( $plan_id ) ), 201 );
 	}
 
 	public static function get_training_plan( WP_REST_Request $request ): WP_REST_Response {
@@ -649,8 +780,12 @@ class WPNT_REST_API {
 				update_post_meta( $plan_id, '_wpnt_' . $param, sanitize_textarea_field( (string) $val ) );
 			}
 		}
+		$content = $request->get_param( 'content' );
+		if ( $content !== null ) {
+			wp_update_post( array( 'ID' => $plan_id, 'post_content' => sanitize_textarea_field( $content ) ) );
+		}
 
-		return new WP_REST_Response( array( 'updated' => true ), 200 );
+		return new WP_REST_Response( array( 'updated' => true, 'url' => get_permalink( $plan_id ) ), 200 );
 	}
 
 	public static function link_plan_session( WP_REST_Request $request ): WP_REST_Response {
@@ -696,18 +831,21 @@ class WPNT_REST_API {
 
 	private static function format_plan( WP_Post $plan ): array {
 		return array(
-			'id'           => $plan->ID,
-			'title'        => $plan->post_title,
-			'plan_type'    => get_post_meta( $plan->ID, '_wpnt_plan_type', true ),
-			'subject_type' => get_post_meta( $plan->ID, '_wpnt_subject_type', true ),
-			'subject_id'   => (int) get_post_meta( $plan->ID, '_wpnt_subject_id', true ),
-			'athlete_id'   => (int) get_post_meta( $plan->ID, '_wpnt_athlete_id', true ),
-			'status'       => get_post_meta( $plan->ID, '_wpnt_status', true ),
-			'scope'        => get_post_meta( $plan->ID, '_wpnt_scope', true ),
-			'goal'         => get_post_meta( $plan->ID, '_wpnt_goal', true ),
-			'target_date'  => get_post_meta( $plan->ID, '_wpnt_target_date', true ),
-			'visibility'   => get_post_meta( $plan->ID, '_wpnt_visibility', true ) ?: 'shared',
-			'parent_id'    => (int) $plan->post_parent,
+			'id'                => $plan->ID,
+			'title'             => $plan->post_title,
+			'content'           => $plan->post_content,
+			'url'               => get_permalink( $plan->ID ),
+			'plan_type'         => get_post_meta( $plan->ID, '_wpnt_plan_type', true ),
+			'subject_type'      => get_post_meta( $plan->ID, '_wpnt_subject_type', true ),
+			'subject_id'        => (int) get_post_meta( $plan->ID, '_wpnt_subject_id', true ),
+			'athlete_id'        => (int) get_post_meta( $plan->ID, '_wpnt_athlete_id', true ),
+			'status'            => get_post_meta( $plan->ID, '_wpnt_status', true ),
+			'scope'             => get_post_meta( $plan->ID, '_wpnt_scope', true ),
+			'goal'              => get_post_meta( $plan->ID, '_wpnt_goal', true ),
+			'planned_activities'=> get_post_meta( $plan->ID, '_wpnt_planned_activities', true ),
+			'target_date'       => get_post_meta( $plan->ID, '_wpnt_target_date', true ),
+			'visibility'        => get_post_meta( $plan->ID, '_wpnt_visibility', true ) ?: 'shared',
+			'parent_id'         => (int) $plan->post_parent,
 		);
 	}
 
@@ -871,6 +1009,10 @@ class WPNT_REST_API {
 
 	public static function can_manage_courses(): bool {
 		return current_user_can( 'edit_wpnt_courses' ) || current_user_can( 'manage_options' );
+	}
+
+	public static function can_manage_sessions(): bool {
+		return current_user_can( 'edit_wpnt_sessions' ) || current_user_can( 'manage_options' );
 	}
 
 	public static function can_view_athlete(): bool {

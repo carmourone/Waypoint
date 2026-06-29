@@ -20,6 +20,7 @@ define( 'WPNT_SAILING_DIR', plugin_dir_path( __FILE__ ) );
 require_once WPNT_SAILING_DIR . 'includes/class-wpnt-sailing-taxonomies.php';
 require_once WPNT_SAILING_DIR . 'includes/class-wpnt-sailing-meta.php';
 require_once WPNT_SAILING_DIR . 'includes/class-wpnt-sailing-importer.php';
+require_once WPNT_SAILING_DIR . 'includes/class-wpnt-sailing-demo.php';
 
 register_activation_hook( __FILE__, array( 'WPNT_Sailing_Importer', 'maybe_seed' ) );
 
@@ -39,3 +40,17 @@ add_action( 'wpnt_packs_init', function () {
 add_action( 'init', array( 'WPNT_Sailing_Taxonomies', 'register' ) );
 add_action( 'add_meta_boxes', array( 'WPNT_Sailing_Meta', 'register' ) );
 add_action( 'save_post', array( 'WPNT_Sailing_Meta', 'save' ), 10, 2 );
+
+// Demo data admin page + install handler.
+add_action( 'admin_menu', function () {
+	add_submenu_page(
+		'wpnt',
+		__( 'Demo Data', 'wpnt-sailing' ),
+		__( 'Demo Data', 'wpnt-sailing' ),
+		'manage_options',
+		'wpnt-sailing-demo',
+		array( 'WPNT_Sailing_Demo', 'render_admin_page' )
+	);
+} );
+
+add_action( 'admin_post_wpnt_sailing_install_demo', array( 'WPNT_Sailing_Demo', 'handle_install' ) );

@@ -134,7 +134,7 @@ class WPNT_Post_Types {
 			'labels'              => self::labels( 'Training Plan', 'Training Plans' ),
 			'public'              => false,
 			'show_ui'             => true,
-			'show_in_menu'        => 'wpnt',
+			'show_in_menu'        => false,
 			'show_in_rest'        => true,
 			'supports'            => array( 'title', 'editor', 'revisions', 'page-attributes' ),
 			'capability_type'     => array( 'wpnt_training_plan', 'wpnt_training_plans' ),
