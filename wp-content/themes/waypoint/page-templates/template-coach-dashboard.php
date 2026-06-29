@@ -38,6 +38,21 @@ $pending_diary  = waypoint_plugin_active() ? WPNT_Diary::get_pending_review() : 
 
 		<?php get_template_part( 'template-parts/dashboard-nav', '', array( 'current' => 'coach' ) ); ?>
 
+		<!-- Quick actions -->
+		<?php
+		$new_session_page = (int) get_option( 'wpnt_new_session_page_id' );
+		$new_plan_page    = (int) get_option( 'wpnt_new_training_plan_page_id' );
+		if ( $new_session_page || $new_plan_page ) : ?>
+			<div class="wpnt-quick-actions">
+				<?php if ( $new_session_page ) : ?>
+					<a href="<?php echo esc_url( get_permalink( $new_session_page ) ); ?>" class="btn btn-primary btn-sm"><?php esc_html_e( '+ New Session', 'waypoint' ); ?></a>
+				<?php endif; ?>
+				<?php if ( $new_plan_page ) : ?>
+					<a href="<?php echo esc_url( get_permalink( $new_plan_page ) ); ?>" class="btn btn-outline btn-sm"><?php esc_html_e( '+ New Training Plan', 'waypoint' ); ?></a>
+				<?php endif; ?>
+			</div>
+		<?php endif; ?>
+
 		<!-- Stat bar -->
 		<div class="dashboard-grid mb-3" style="grid-template-columns: repeat(auto-fill, minmax(160px,1fr))">
 			<div class="dashboard-stat">

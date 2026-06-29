@@ -11,30 +11,29 @@ class WPNT_Session {
 	public static function get_todays_sessions( int $coach_id = 0 ): array {
 		$today = current_time( 'Y-m-d' );
 
+		$date_clause = array(
+			'key'     => '_wpnt_scheduled_start',
+			'value'   => array( $today . 'T00:00', $today . 'T23:59' ),
+			'compare' => 'BETWEEN',
+			'type'    => 'CHAR',
+		);
+
 		$args = array(
 			'post_type'      => 'wpnt_session',
 			'posts_per_page' => -1,
-			'meta_query'     => array(
-				array(
-					'key'     => '_wpnt_scheduled_start',
-					'value'   => array( $today . 'T00:00', $today . 'T23:59' ),
-					'compare' => 'BETWEEN',
-					'type'    => 'CHAR',
-				),
-			),
+			'meta_query'     => array( $date_clause ),
 		);
 
 		if ( $coach_id ) {
-			// Filter to sessions belonging to courses this coach is assigned to.
-			$coach_course_ids = self::get_coach_course_ids( $coach_id );
-			if ( empty( $coach_course_ids ) ) {
-				return array();
-			}
-			$args['meta_query'][] = array(
-				'key'     => '_wpnt_course_id',
-				'value'   => $coach_course_ids,
-				'compare' => 'IN',
+			$course_ids    = self::get_coach_course_ids( $coach_id );
+			$access_filter = array(
+				'relation' => 'OR',
+				array( 'key' => '_wpnt_coach_id', 'value' => $coach_id, 'compare' => '=', 'type' => 'NUMERIC' ),
 			);
+			if ( ! empty( $course_ids ) ) {
+				$access_filter[] = array( 'key' => '_wpnt_course_id', 'value' => $course_ids, 'compare' => 'IN' );
+			}
+			$args['meta_query'] = array( 'relation' => 'AND', $date_clause, $access_filter );
 		}
 
 		return get_posts( $args );
@@ -47,32 +46,32 @@ class WPNT_Session {
 		$today = current_time( 'Y-m-d' );
 		$until = date( 'Y-m-d', strtotime( "+{$days} days", current_time( 'timestamp' ) ) );
 
+		$date_clause = array(
+			'key'     => '_wpnt_scheduled_start',
+			'value'   => array( $today . 'T00:00', $until . 'T23:59' ),
+			'compare' => 'BETWEEN',
+			'type'    => 'CHAR',
+		);
+
 		$args = array(
 			'post_type'      => 'wpnt_session',
 			'posts_per_page' => -1,
-			'meta_query'     => array(
-				array(
-					'key'     => '_wpnt_scheduled_start',
-					'value'   => array( $today . 'T00:00', $until . 'T23:59' ),
-					'compare' => 'BETWEEN',
-					'type'    => 'CHAR',
-				),
-			),
+			'meta_query'     => array( $date_clause ),
 			'orderby'        => 'meta_value',
 			'meta_key'       => '_wpnt_scheduled_start',
 			'order'          => 'ASC',
 		);
 
 		if ( $coach_id ) {
-			$course_ids = self::get_coach_course_ids( $coach_id );
-			if ( empty( $course_ids ) ) {
-				return array();
-			}
-			$args['meta_query'][] = array(
-				'key'     => '_wpnt_course_id',
-				'value'   => $course_ids,
-				'compare' => 'IN',
+			$course_ids    = self::get_coach_course_ids( $coach_id );
+			$access_filter = array(
+				'relation' => 'OR',
+				array( 'key' => '_wpnt_coach_id', 'value' => $coach_id, 'compare' => '=', 'type' => 'NUMERIC' ),
 			);
+			if ( ! empty( $course_ids ) ) {
+				$access_filter[] = array( 'key' => '_wpnt_course_id', 'value' => $course_ids, 'compare' => 'IN' );
+			}
+			$args['meta_query'] = array( 'relation' => 'AND', $date_clause, $access_filter );
 		}
 
 		return get_posts( $args );
@@ -104,15 +103,15 @@ class WPNT_Session {
 		);
 
 		if ( $coach_id ) {
-			$course_ids = self::get_coach_course_ids( $coach_id );
-			if ( empty( $course_ids ) ) {
-				return array();
-			}
-			$args['meta_query'][] = array(
-				'key'     => '_wpnt_course_id',
-				'value'   => $course_ids,
-				'compare' => 'IN',
+			$course_ids    = self::get_coach_course_ids( $coach_id );
+			$access_filter = array(
+				'relation' => 'OR',
+				array( 'key' => '_wpnt_coach_id', 'value' => $coach_id, 'compare' => '=', 'type' => 'NUMERIC' ),
 			);
+			if ( ! empty( $course_ids ) ) {
+				$access_filter[] = array( 'key' => '_wpnt_course_id', 'value' => $course_ids, 'compare' => 'IN' );
+			}
+			$args['meta_query'][] = $access_filter;
 		}
 
 		$sessions = get_posts( $args );

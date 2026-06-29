@@ -405,6 +405,16 @@ class WPNT_Sailing_Demo {
 				'title'    => 'Parent Dashboard',
 				'template' => 'page-templates/template-parent-dashboard.php',
 			),
+			array(
+				'option'   => 'wpnt_new_session_page_id',
+				'title'    => 'New Session',
+				'template' => 'page-templates/template-new-session.php',
+			),
+			array(
+				'option'   => 'wpnt_new_training_plan_page_id',
+				'title'    => 'New Training Plan',
+				'template' => 'page-templates/template-new-training-plan.php',
+			),
 		);
 
 		foreach ( $definitions as $def ) {

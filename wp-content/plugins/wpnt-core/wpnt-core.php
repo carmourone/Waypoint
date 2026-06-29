@@ -60,30 +60,60 @@ if ( function_exists( 'buddypress' ) ) {
 }
 
 function wpnt_enqueue_frontend_assets(): void {
-	if ( is_singular( array( 'wpnt_course', 'wpnt_session', 'wpnt_training_plan', 'wpnt_diary_entry' ) )
-		|| is_page_template( array(
-			'page-templates/template-coach-dashboard.php',
-			'page-templates/template-parent-dashboard.php',
-			'page-templates/template-athlete-dashboard.php',
-		) )
+	$form_templates = array(
+		'page-templates/template-new-session.php',
+		'page-templates/template-new-training-plan.php',
+	);
+	$all_templates  = array_merge( $form_templates, array(
+		'page-templates/template-coach-dashboard.php',
+		'page-templates/template-parent-dashboard.php',
+		'page-templates/template-athlete-dashboard.php',
+	) );
+
+	$is_wpnt_page = is_singular( array( 'wpnt_course', 'wpnt_session', 'wpnt_training_plan', 'wpnt_diary_entry' ) )
+		|| is_page_template( $all_templates );
+
+	if ( ! $is_wpnt_page ) {
+		return;
+	}
+
+	wp_enqueue_style(
+		'wpnt-frontend',
+		WPNT_PLUGIN_URL . 'assets/css/wpnt-frontend.css',
+		array(),
+		WPNT_VERSION
+	);
+
+	$localize = array(
+		'restUrl' => esc_url_raw( rest_url( 'wpnt/v1/' ) ),
+		'nonce'   => wp_create_nonce( 'wp_rest' ),
+		'userId'  => get_current_user_id(),
+		'i18n'    => array(
+			'saving' => __( 'Saving…', 'waypoint' ),
+			'saved'  => __( 'Saved.', 'waypoint' ),
+			'error'  => __( 'Something went wrong. Please try again.', 'waypoint' ),
+		),
+	);
+
+	wp_enqueue_script(
+		'wpnt-frontend',
+		WPNT_PLUGIN_URL . 'assets/js/wpnt-frontend.js',
+		array( 'jquery' ),
+		WPNT_VERSION,
+		true
+	);
+	wp_localize_script( 'wpnt-frontend', 'wpntData', $localize );
+
+	// Form handler — only needed on pages with .wpnt-form elements.
+	if ( is_singular( array( 'wpnt_session', 'wpnt_training_plan' ) )
+		|| is_page_template( $all_templates )
 	) {
-		wp_enqueue_style(
-			'wpnt-frontend',
-			WPNT_PLUGIN_URL . 'assets/css/wpnt-frontend.css',
-			array(),
-			WPNT_VERSION
-		);
 		wp_enqueue_script(
-			'wpnt-frontend',
-			WPNT_PLUGIN_URL . 'assets/js/wpnt-frontend.js',
-			array( 'jquery' ),
+			'wpnt-forms',
+			WPNT_PLUGIN_URL . 'assets/js/wpnt-forms.js',
+			array( 'jquery', 'wpnt-frontend' ),
 			WPNT_VERSION,
 			true
 		);
-		wp_localize_script( 'wpnt-frontend', 'wpntData', array(
-			'restUrl' => esc_url_raw( rest_url( 'wpnt/v1/' ) ),
-			'nonce'   => wp_create_nonce( 'wp_rest' ),
-			'userId'  => get_current_user_id(),
-		) );
 	}
 }
