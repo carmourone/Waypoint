@@ -58,6 +58,8 @@ if ( waypoint_plugin_active() ) {
 
 	<div class="container mt-4 wpnt-dashboard">
 
+		<?php get_template_part( 'template-parts/dashboard-nav', '', array( 'current' => 'athlete' ) ); ?>
+
 		<!-- Current courses -->
 		<div class="dashboard-section">
 			<h2 class="dashboard-section-title"><?php esc_html_e( 'My Courses', 'waypoint' ); ?></h2>

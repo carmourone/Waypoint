@@ -147,6 +147,66 @@ function waypoint_plugin_active(): bool {
 	return class_exists( 'WPNT_Course' );
 }
 
+/**
+ * Return dashboard links the current user is entitled to see.
+ *
+ * Checks capabilities rather than role names so coaches who also have parent
+ * relationships (via BP friendship) or admin access all get the right links.
+ * Pages are stored as options set during site setup.
+ */
+function wpnt_user_dashboard_links( int $user_id = 0 ): array {
+	$user_id = $user_id ?: get_current_user_id();
+	if ( ! $user_id || ! is_user_logged_in() ) {
+		return array();
+	}
+
+	$user      = get_userdata( $user_id );
+	$roles     = $user ? (array) $user->roles : array();
+	$is_admin  = user_can( $user_id, 'manage_options' );
+	$is_coach  = user_can( $user_id, 'edit_wpnt_sessions' );
+
+	$participant_label = class_exists( 'WPNT_Pack' )
+		? WPNT_Pack::get_active_label( 'participant_label', __( 'Athlete', 'waypoint' ) )
+		: __( 'Athlete', 'waypoint' );
+
+	$links = array();
+
+	if ( $is_coach || $is_admin ) {
+		$page_id = (int) get_option( 'wpnt_coach_dashboard_page_id' );
+		if ( $page_id && get_post_status( $page_id ) ) {
+			$links['coach'] = array(
+				'key'   => 'coach',
+				'label' => __( 'Coach', 'waypoint' ),
+				'url'   => get_permalink( $page_id ),
+			);
+		}
+	}
+
+	if ( in_array( 'wpnt_athlete', $roles, true ) || $is_coach || $is_admin ) {
+		$page_id = (int) get_option( 'wpnt_athlete_dashboard_page_id' );
+		if ( $page_id && get_post_status( $page_id ) ) {
+			$links['athlete'] = array(
+				'key'   => 'athlete',
+				'label' => $participant_label,
+				'url'   => get_permalink( $page_id ),
+			);
+		}
+	}
+
+	if ( in_array( 'wpnt_parent', $roles, true ) || $is_admin ) {
+		$page_id = (int) get_option( 'wpnt_parent_dashboard_page_id' );
+		if ( $page_id && get_post_status( $page_id ) ) {
+			$links['parent'] = array(
+				'key'   => 'parent',
+				'label' => __( 'Parent / Guardian', 'waypoint' ),
+				'url'   => get_permalink( $page_id ),
+			);
+		}
+	}
+
+	return $links;
+}
+
 // -------------------------------------------------------------------------
 // Body classes
 // -------------------------------------------------------------------------

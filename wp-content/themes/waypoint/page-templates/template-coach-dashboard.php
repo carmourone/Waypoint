@@ -36,6 +36,8 @@ $pending_diary  = waypoint_plugin_active() ? WPNT_Diary::get_pending_review() : 
 
 	<div class="container mt-4 wpnt-dashboard">
 
+		<?php get_template_part( 'template-parts/dashboard-nav', '', array( 'current' => 'coach' ) ); ?>
+
 		<!-- Stat bar -->
 		<div class="dashboard-grid mb-3" style="grid-template-columns: repeat(auto-fill, minmax(160px,1fr))">
 			<div class="dashboard-stat">

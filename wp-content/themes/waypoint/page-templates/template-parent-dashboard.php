@@ -46,6 +46,8 @@ $children = $child_ids ? get_users( array( 'include' => array_values( $child_ids
 
 	<div class="container mt-4 wpnt-dashboard">
 
+		<?php get_template_part( 'template-parts/dashboard-nav', '', array( 'current' => 'parent' ) ); ?>
+
 		<?php if ( empty( $children ) ) : ?>
 			<div class="notice-wp info">
 				<?php esc_html_e( 'No athletes are linked to your account yet. Please contact your organisation administrator.', 'waypoint' ); ?>

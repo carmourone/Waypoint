@@ -48,8 +48,26 @@
 .wpnt-curr-node-label { display: inline-flex; align-items: center; gap: .5rem; }
 .wpnt-curr-node-type { font-size: .7rem; background: #e5e7eb; padding: 1px 6px; border-radius: 3px; color: #6b7280; text-transform: uppercase; }
 
+/* Dashboard role switcher */
+.dashboard-switcher { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+.dashboard-switcher-btn {
+	display: inline-block;
+	padding: .45rem 1.1rem;
+	border-radius: 20px;
+	border: 1.5px solid var(--color-primary, #1e3a5f);
+	color: var(--color-primary, #1e3a5f);
+	font-size: .875rem;
+	font-weight: 600;
+	text-decoration: none;
+	transition: background .15s, color .15s;
+}
+.dashboard-switcher-btn:hover { background: var(--color-primary, #1e3a5f); color: #fff; }
+.dashboard-switcher-btn.is-current { background: var(--color-primary, #1e3a5f); color: #fff; pointer-events: none; }
+
 /* Responsive */
 @media (max-width: 640px) {
   .wpnt-stat-bar { flex-direction: column; }
   .wpnt-session-cards { grid-template-columns: 1fr; }
+  .dashboard-switcher { gap: .375rem; }
+  .dashboard-switcher-btn { font-size: .8rem; padding: .4rem .9rem; }
 }
